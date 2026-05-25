@@ -42,63 +42,61 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
-**M4 — Public bill page + member confirm flow**
+**M5 — Organizer dashboard + live polling + Nudge-on-WhatsApp**
 
-Goal: `/b/[id]` "prints in" as a kopitiam receipt showing the bill + participant list. Member taps their name (remembered via `localStorage`), goes to `/b/[id]/me/[pid]`, marks themselves paid (with optional payment-reference note), status flips to amber **"Pending"**.
+Goal: `/b/[id]/admin?k=<secret>` dashboard with progress ring, three columns (Unpaid / Pending / Paid), SWR polling every 4s, per-row Confirm/Reject for pending, Nudge-on-WhatsApp button per unpaid participant.
 
-## Voice (UPDATED) — all in-app copy in ENGLISH
-Brand name "Kira-Kira" stays. KOPI-SUSU theme badge stays as a visual accent. Everything user-facing is plain, friendly English — no Malay phrases. Tone matches M3: warm, casual, never corporate. Reference M3 wording for consistency:
-- Copy buttons: "Copy link" / toast "Copied!"
-- Status name: "Pending" (amber), "Paid" (green), "Unpaid" (grey)
-- Forms: short labels, decisive verbs ("Create bill", "Mark as paid")
+## Voice — all in-app copy in ENGLISH
+Same English-with-warm-tone rules as M4. Reference M3/M4 components for the copy register. Status names: "Unpaid" (grey), "Pending" (amber), "Paid" (lime). Action verbs: "Confirm", "Reject", "Nudge".
 
 ## Definition of done for the current milestone
 
 **Acceptance criteria (all must pass):**
-1. First visit to `/b/[id]` shows the receipt + a **"Pick your name"** picker; tapping a name stores `{ billId, participantId }` in `localStorage[kira-kira:<billId>]` and routes to `/b/[id]/me/[pid]`
-2. Subsequent visits read the saved pick from `localStorage` and route straight to the confirm view — but show a small **"Not you?"** link that clears the entry and returns to `/b/[id]`
-3. The confirm view shows: bill title, the participant's name, their amount owed (RM X.YZ via `formatRm`), optional note textarea (placeholder: "Payment reference — e.g. Maybank TXN 12345", max 200 chars), **"Mark as paid"** button
-4. Submitting calls `markPaid` server action → status flips to `pending` → amber **"Pending"** stamp animation appears, button becomes disabled with copy **"Waiting for organizer to confirm…"**
-5. The receipt has a `PrintInAnimation` reveal on load (CSS-only mask animation — no JS animation libraries)
-6. **No-JS fallback**: `/b/[id]` read view renders fully with JS disabled (RSC). The confirm form shows a `<noscript>` message: **"Enable JavaScript to mark this paid."**
-7. `npm run typecheck` clean
-8. M2 vitest suite still passes (no regressions)
-9. Mobile-first: 390 × 844 viewport renders cleanly, all tap targets ≥ 44 px
+1. `/b/[id]/admin?k=<secret>` renders the dashboard for the matching bill; wrong/missing `?k=` returns 404 via `notFound()` (not 401 — never confirms bill existence)
+2. Header shows: bill title, total RM (via `formatRm`), due date if present, and a progress ring showing `paidCount / totalParticipants` as a percentage. The ring stroke is lime when ≥ 100%, teh-amber otherwise.
+3. Three columns/sections (mobile: stacked, sm: 3-col grid): **Unpaid** (grey), **Pending verification** (amber, with member's note shown), **Paid** (lime). Each shows participant name + RM owed + status-pill.
+4. Each **Pending** row has two buttons: **Confirm** (lime) → calls `confirmPayment` action; **Reject** (sambal) → calls `rejectPayment` action. Both verify the admin secret server-side.
+5. Each **Unpaid** row has a **Nudge** button: if participant has a phone, opens `https://wa.me/<digits-only>?text=<encoded>`; otherwise copies the same message to clipboard and toast "Message copied — paste into WhatsApp." Message body: `"Hey ${name}, you still owe RM ${amount} for "${billTitle}" — settle here: ${publicUrl}"`.
+6. SWR polling: client component re-fetches via `GET /b/[id]/admin/poll?k=<secret>` every 4s. Server route validates `?k=` against the bill's admin secret hash (timing-safe). Newly-confirmed rows slide in with a soft `bg-lime/20` highlight that fades over 1.5s (CSS-only).
+7. Optimistic UI on Confirm/Reject: the row visually moves to the new column immediately. On server error, rolls back + toast.
+8. When dashboard hits 100% paid for the first time in the session, fires `canvas-confetti` (one-shot, then `sessionStorage.setItem("confetti:${billId}", "1")` to suppress on subsequent renders).
+9. `npm run typecheck` clean, `npm test -- --run` still passes (no M1–M4 regressions).
+10. Mobile-first: 390 × 844 viewport renders cleanly, all tap targets ≥ 44 px.
 
 ## Architectural notes (mandatory)
 
-- `/b/[id]/page.tsx` is a **server component**. Reads bill via `getBillPublic(getDb(), id)`. Renders `<Receipt>` (server-renderable) + `<ParticipantPicker>` (client island).
-- `<ParticipantPicker>` is a client component that on mount:
-  1. Reads `localStorage[\`kira-kira:${billId}\`]` for the participant id
-  2. If present, routes `router.replace('/b/' + billId + '/me/' + savedPid)` immediately
-  3. If absent, renders the tap-list
-- `/b/[id]/me/[pid]/page.tsx` is also a server component. Reads bill + verifies pid exists. Renders `<Receipt>` + `<MarkPaidForm>` (client).
-- `<MarkPaidForm>` is a client component using `useTransition`; calls the `markPaid` server action; on success, optimistic state shows the pending stamp.
-- `<Receipt>` is purely presentational; takes `bill: BillView` as a prop. Server-renderable. Used by both `/b/[id]` and `/b/[id]/me/[pid]`.
-- `<PrintInAnimation>` is a tiny client wrapper (`useEffect` adds a class for the CSS keyframes after mount). Pure CSS animation — no framer-motion / no animation library.
-- "Not you?" link: clears the `localStorage` entry and routes back to `/b/[id]`.
+- `app/b/[id]/admin/page.tsx` is a **server component**. Reads the bill via `getBillAdmin(getDb(), id, k)` from URL search params. Wrong/missing `k` throws `AdminUnauthorizedError` → caught and converted to `notFound()`.
+- The server component renders initial HTML (so first load is fast and SEO-friendly), then a `<DashboardClient>` client island takes over with SWR polling.
+- **`<DashboardClient>`** is a client component. Receives `initialBill: BillView` + `billId` + `adminSecret` (passed from URL via the server component). Uses `useSWR('/b/' + billId + '/admin/poll?k=' + secret, fetcher, { refreshInterval: 4000, fallbackData: initialBill })`. Refetches every 4 s. Shows the three-column board.
+- **`app/b/[id]/admin/poll/route.ts`** is a `GET` route handler. Reads `?k=` from URL, validates against bill admin hash (timing-safe via `verifySecret`). Returns `BillView` as JSON. Wrong secret → 404. No POST mutations on this route — those go through the existing server actions.
+- **Optimistic mutations:** `Confirm`/`Reject` buttons call the server action with `useTransition`. On call start, locally mutate the SWR cache via `mutate(...)` to move the row to its new column. On action error, revert.
+- **Confetti:** `canvas-confetti` fires once via `useEffect` when computed progress hits 100% AND `sessionStorage[\`confetti:${billId}\`]` is unset; then sets the key. NEW DEPENDENCY: pin `canvas-confetti` exact + signature audit.
+- **Slide-in highlight:** when a participant status changes from "pending" to "paid" between SWR refetches, briefly add a `data-just-paid` attribute on the row, CSS animates a `bg-lime/20` highlight that fades over 1.5 s.
+- **Nudge message URL helper** lives in `lib/whatsapp.ts`: `buildNudgeUrl({ name, amountCents, phone?, billTitle, publicUrl })` returns either `wa.me/<digits>?text=...` (phone present) or a plain `text:` string for clipboard. Phone normalization: strip non-digits; require ≥ 8 digits.
 
 ## Files you may create or modify
 
 ```
-app/b/[id]/page.tsx                  # server: bill load + Receipt + ParticipantPicker
-app/b/[id]/me/[pid]/page.tsx         # server: bill+participant load + Receipt + MarkPaidForm
-components/Receipt.tsx               # server-renderable presentational receipt
-components/ParticipantPicker.tsx     # client: localStorage + tap-list
-components/MarkPaidForm.tsx          # client: form + useTransition + markPaid action
-components/PrintInAnimation.tsx      # client: CSS keyframe trigger
-components/PendingStamp.tsx          # tiny client/server stamp visual (amber, slightly rotated)
-app/globals.css                      # MAY append @keyframes for the receipt print-in mask
+app/b/[id]/admin/page.tsx               # server: getBillAdmin + initial Dashboard render
+app/b/[id]/admin/poll/route.ts          # GET: returns BillView JSON if ?k= verifies
+components/Dashboard.tsx                # client: SWR polling + three columns + confetti trigger
+components/ProgressRing.tsx             # SVG ring, server-renderable
+components/StatusColumn.tsx             # column container with header + count
+components/ParticipantRow.tsx           # one row (used in all three columns), with action buttons per status
+components/NudgeButton.tsx              # client: opens wa.me or copies-to-clipboard fallback
+components/ConfettiOnSettled.tsx        # client: useEffect that fires canvas-confetti once
+lib/whatsapp.ts                         # buildNudgeUrl + normalizePhone (pure, unit-tested)
+tests/whatsapp.test.ts                  # tests for normalizePhone + buildNudgeUrl
 ```
 
-**Do NOT touch in M4:**
-- `app/page.tsx`, `app/created/[id]/page.tsx`, `components/CreateBillForm.tsx`, `components/CopyLinkButton.tsx`, `components/WhatsAppShareButton.tsx` (M3)
-- `lib/**`, `app/actions/**`, `db/**` (M2 settled — only USE these)
-- `wrangler.jsonc`, `next.config.ts`, `open-next.config.ts`, `drizzle.config.ts`, `tsconfig.json`, `vitest.config.ts` (M1)
-- `tests/**` (Optionally extend if you write a new pure helper — otherwise leave)
-- `app/b/[id]/admin/` and `app/api/og/` — those are M5/M6
+**Approved new dep (Claude pre-stages before Codex dispatch):**
+- `canvas-confetti` (exact-pinned, signature-verified). Plus `@types/canvas-confetti` as devDep.
 
-**No new dependencies allowed.** Everything needed is already installed (Next.js + React + Tailwind + shadcn primitives + lucide-react).
+**Do NOT touch in M5:**
+- `app/page.tsx`, `app/created/[id]/`, `app/b/[id]/page.tsx`, `app/b/[id]/me/`, all M3/M4 components — those are settled
+- `lib/auth.ts`, `lib/bills/**`, `lib/payments/**`, `lib/money.ts`, `lib/validation.ts`, `db/**`, `app/actions/**` (M2 — only USE)
+- M1 config files
+- `app/api/og/` — that's M6
 
 ---
 
@@ -329,8 +327,8 @@ Anything else outside this list = STOP-and-flag.
 | M1 — Skeleton + D1 + healthcheck | ✅ | Claude executed (Codex sandbox has no npm/wrangler network). Next.js 16.2.6 + OpenNext 1.19.11 + D1 (id 23866d8c-...) + Drizzle 0.45.2 + Tailwind v4.3.0. `/api/health` returns `{ok:true, result:2}`. 672 packages, all with verified registry signatures. Spec deviation: dev script is `next dev` (OpenNext-recommended), `wrangler dev` is now `npm run preview` against the built worker. |
 | M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. |
 | M3 — UI shell + create flow | ✅ | Codex (GPT-5.5 xhigh) built it in 5 commits. CreateBillForm (436 lines, reuses lib/validation.ts schema — zero duplication), CopyLinkButton + CreatedClient, WhatsAppShareButton, success page, branded layout with Fraunces/Inter/JetBrains Mono. Claude end-to-end tested: form submits → secret in URL fragment → success page renders both copyable links → wa.me deep link correct. 19 tests still pass. Mobile-first verified at 390px (no horizontal scroll, kopi paper bg `#F7EFE2` / espresso ink `#3B2A1E` confirmed in DOM). |
-| M4 — Public bill + member confirm | 📋 | Briefed above. Pure codegen — no install/network needed. Codex's lane. |
-| M5 — Dashboard + polling + nudge | ⏳ | Queued. Brief lives in design spec (`docs/.../2026-05-25-kira-kira-design.md`). |
+| M4 — Public bill + member confirm | ✅ | Codex built it in 8 commits. Receipt + PrintInAnimation + PendingStamp + ParticipantPicker (localStorage with try/catch) + public bill page + MarkPaidForm (optimistic) + member confirm with `<noscript>` fallback. Typecheck clean, 19 tests pass. CSS-only keyframes. Pushed through d9dd9fd. |
+| M5 — Dashboard + polling + nudge | 📋 | Briefed above. Claude pre-stages canvas-confetti, then Codex dispatch. |
 | M6 — OG image + README + deploy | ⏳ | Queued. Brief lives in design spec. |
 | M7 — Receipt OCR (delight scope) | 🎁 | Briefed above. Runs ONLY after M6 ships. Adds Cloudflare Workers AI vision binding to autofill bill from a receipt photo. Differentiator for bounty judging. |
 | M2 | ⏳ | |

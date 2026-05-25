@@ -22,6 +22,7 @@
   "dependencies": {
     "@base-ui/react": "1.5.0",
     "@opennextjs/cloudflare": "1.19.11",
+    "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.2",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@libsql/client": "0.17.3",
     "@tailwindcss/postcss": "4.3.0",
+    "@types/canvas-confetti": "1.9.0",
     "@types/node": "25.9.1",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
