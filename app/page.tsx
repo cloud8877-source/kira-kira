@@ -21,7 +21,7 @@ export default function Page() {
               Kira-Kira
             </h1>
             <p className="max-w-[18rem] text-xl font-medium leading-7 text-ink/75">
-              Bayar sama-sama, tanpa segan.
+              Split bills without the awkward chase.
             </p>
           </div>
         </header>

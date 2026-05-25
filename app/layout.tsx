@@ -10,7 +10,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Kira-Kira",
-  description: "Bayar sama-sama, tanpa segan.",
+  description: "Split bills without the awkward chase.",
 };
 
 export default function RootLayout({

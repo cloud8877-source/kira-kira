@@ -23,10 +23,10 @@ export default async function CreatedPage({ params }: CreatedPageProps) {
         <header className="space-y-3 pt-3">
           <p className="font-mono text-xs font-semibold uppercase text-teh">Kira-Kira</p>
           <h1 className="font-display text-4xl font-semibold leading-tight text-ink">
-            Bil dah siap! Hantar pada geng korang.
+            Bill ready! Share it with your group.
           </h1>
           <p className="text-base leading-7 text-ink/70">
-            Admin link untuk korang simpan, public link untuk geng bayar sama-sama.
+            Bookmark the admin link to track payments. Share the public link in your WhatsApp group.
           </p>
         </header>
 

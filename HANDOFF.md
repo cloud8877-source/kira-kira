@@ -44,17 +44,23 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 **M4 — Public bill page + member confirm flow**
 
-Goal: `/b/[id]` "prints in" as a kopitiam receipt showing the bill + participant list. Member taps their name (remembered via `localStorage`), goes to `/b/[id]/me/[pid]`, marks themselves paid (with optional Maybank-ref-style note), status flips to amber "Tengok dulu (pending)".
+Goal: `/b/[id]` "prints in" as a kopitiam receipt showing the bill + participant list. Member taps their name (remembered via `localStorage`), goes to `/b/[id]/me/[pid]`, marks themselves paid (with optional payment-reference note), status flips to amber **"Pending"**.
+
+## Voice (UPDATED) — all in-app copy in ENGLISH
+Brand name "Kira-Kira" stays. KOPI-SUSU theme badge stays as a visual accent. Everything user-facing is plain, friendly English — no Malay phrases. Tone matches M3: warm, casual, never corporate. Reference M3 wording for consistency:
+- Copy buttons: "Copy link" / toast "Copied!"
+- Status name: "Pending" (amber), "Paid" (green), "Unpaid" (grey)
+- Forms: short labels, decisive verbs ("Create bill", "Mark as paid")
 
 ## Definition of done for the current milestone
 
 **Acceptance criteria (all must pass):**
-1. First visit to `/b/[id]` shows the receipt + a "Pilih nama anda" picker; tapping a name stores `{ billId, participantId }` in `localStorage` and routes to `/b/[id]/me/[pid]`
-2. Subsequent visits read the saved pick from `localStorage` and skip the picker (route straight to the confirm view) — but show a small "Bukan saya" link to clear the choice
-3. The confirm view shows: bill title, participant's amount owed (RM X.YZ via `formatRm`), optional note textarea (max 200 chars), "Saya dah bayar" button
-4. Submitting calls `markPaid` server action → status flips to `pending` → amber "Tengok dulu" stamp animation appears, button becomes disabled with "Tunggu organizer confirm…"
+1. First visit to `/b/[id]` shows the receipt + a **"Pick your name"** picker; tapping a name stores `{ billId, participantId }` in `localStorage[kira-kira:<billId>]` and routes to `/b/[id]/me/[pid]`
+2. Subsequent visits read the saved pick from `localStorage` and route straight to the confirm view — but show a small **"Not you?"** link that clears the entry and returns to `/b/[id]`
+3. The confirm view shows: bill title, the participant's name, their amount owed (RM X.YZ via `formatRm`), optional note textarea (placeholder: "Payment reference — e.g. Maybank TXN 12345", max 200 chars), **"Mark as paid"** button
+4. Submitting calls `markPaid` server action → status flips to `pending` → amber **"Pending"** stamp animation appears, button becomes disabled with copy **"Waiting for organizer to confirm…"**
 5. The receipt has a `PrintInAnimation` reveal on load (CSS-only mask animation — no JS animation libraries)
-6. **No-JS fallback**: `/b/[id]` read view renders fully with JS disabled (RSC). The confirm form falls back to a clear "Hidupkan JavaScript untuk mark paid" message if JS is off (use `<noscript>`)
+6. **No-JS fallback**: `/b/[id]` read view renders fully with JS disabled (RSC). The confirm form shows a `<noscript>` message: **"Enable JavaScript to mark this paid."**
 7. `npm run typecheck` clean
 8. M2 vitest suite still passes (no regressions)
 9. Mobile-first: 390 × 844 viewport renders cleanly, all tap targets ≥ 44 px
@@ -70,7 +76,7 @@ Goal: `/b/[id]` "prints in" as a kopitiam receipt showing the bill + participant
 - `<MarkPaidForm>` is a client component using `useTransition`; calls the `markPaid` server action; on success, optimistic state shows the pending stamp.
 - `<Receipt>` is purely presentational; takes `bill: BillView` as a prop. Server-renderable. Used by both `/b/[id]` and `/b/[id]/me/[pid]`.
 - `<PrintInAnimation>` is a tiny client wrapper (`useEffect` adds a class for the CSS keyframes after mount). Pure CSS animation — no framer-motion / no animation library.
-- "Bukan saya" link: clears localStorage entry and routes back to `/b/[id]`.
+- "Not you?" link: clears the `localStorage` entry and routes back to `/b/[id]`.
 
 ## Files you may create or modify
 

@@ -16,9 +16,9 @@ export function WhatsAppShareButton({
   totalCents,
   publicUrl,
 }: WhatsAppShareButtonProps) {
-  const message = `Eh geng, bil kopi/makan kita: ${billTitle} — ${formatRm(
+  const message = `${billTitle} — ${formatRm(
     totalCents,
-  )} sekali. Tap & bayar lah → ${publicUrl}`;
+  )} total. Tap to view your share and pay: ${publicUrl}`;
   const href = "https://wa.me/?text=" + encodeURIComponent(message);
 
   return (
@@ -32,7 +32,7 @@ export function WhatsAppShareButton({
       target="_blank"
     >
       <MessageCircle className="size-5" aria-hidden="true" />
-      Hantar kat WhatsApp
+      Share on WhatsApp
     </a>
   );
 }

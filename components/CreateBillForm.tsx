@@ -66,7 +66,7 @@ function validateForm(state: FormState): { input: CreateBillInput | null; errors
   try {
     totalCents = toCents(state.totalRm);
   } catch {
-    errors.totalRm = "Masukkan jumlah macam 42.50.";
+    errors.totalRm = "Enter an amount like 42.50.";
   }
 
   const candidate = {
@@ -86,16 +86,16 @@ function validateForm(state: FormState): { input: CreateBillInput | null; errors
       const [field, index, childField] = issue.path;
 
       if (field === "title") {
-        errors.title = "Tajuk bil kena isi.";
+        errors.title = "Bill title is required.";
       }
       if (field === "totalCents" && !errors.totalRm) {
-        errors.totalRm = "Jumlah mesti lebih daripada RM 0.";
+        errors.totalRm = "Amount must be more than RM 0.";
       }
       if (field === "dueDate") {
-        errors.dueDate = "Tarikh akhir tak nampak betul.";
+        errors.dueDate = "That date doesn't look right.";
       }
       if (field === "description") {
-        errors.description = "Nota jangan lebih 500 aksara.";
+        errors.description = "Notes can't exceed 500 characters.";
       }
       if (field === "participants" && typeof index !== "number") {
         errors.participants = issue.message;
@@ -106,10 +106,10 @@ function validateForm(state: FormState): { input: CreateBillInput | null; errors
           continue;
         }
         if (childField === "name") {
-          errors.participantNames[row.key] = "Nama kena isi.";
+          errors.participantNames[row.key] = "Name is required.";
         }
         if (childField === "phone") {
-          errors.participantPhones[row.key] = "No. telefon macam +60123456789.";
+          errors.participantPhones[row.key] = "Phone format: +60123456789";
         }
       }
     }
@@ -216,7 +216,7 @@ export function CreateBillForm() {
         const result = await createBill(input);
         router.replace("/created/" + result.id + "#k=" + encodeURIComponent(result.adminSecret));
       } catch (error) {
-        setServerError(error instanceof Error ? error.message : "Tak jadi hantar. Cuba lagi.");
+        setServerError(error instanceof Error ? error.message : "Couldn't create the bill. Try again.");
       }
     });
   }
@@ -230,26 +230,26 @@ export function CreateBillForm() {
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="font-display text-2xl font-semibold text-ink">
-              Buat bil baru
+              Create a bill
             </CardTitle>
-            <p className="text-sm leading-6 text-ink/70">Isi cepat-cepat, nanti senang share.</p>
+            <p className="text-sm leading-6 text-ink/70">Fill it in, share the link in seconds.</p>
           </div>
           <div className="rounded-md border border-ink/15 px-2 py-1 font-mono text-xs font-semibold uppercase text-teh">
-            Resit
+            Receipt
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <form className="space-y-5" noValidate onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="bill-title">Tajuk bil</Label>
+            <Label htmlFor="bill-title">Bill title</Label>
             <Input
               id="bill-title"
               aria-describedby="bill-title-error"
               aria-invalid={Boolean(shouldShow("title") && validation.errors.title)}
               className="min-h-11 bg-paper text-ink placeholder:text-ink/45"
               maxLength={120}
-              placeholder="Kopi lepas futsal"
+              placeholder="Coffee after football"
               value={state.title}
               onBlur={() => touch("title")}
               onChange={(event) => updateField("title", event.target.value)}
@@ -261,7 +261,7 @@ export function CreateBillForm() {
 
           <div className="grid gap-4 sm:grid-cols-[1fr_0.9fr]">
             <div className="space-y-2">
-              <Label htmlFor="bill-total">Jumlah (RM)</Label>
+              <Label htmlFor="bill-total">Total (RM)</Label>
               <Input
                 id="bill-total"
                 aria-describedby="bill-total-error"
@@ -279,7 +279,7 @@ export function CreateBillForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bill-due-date">Tarikh akhir</Label>
+              <Label htmlFor="bill-due-date">Due date</Label>
               <Input
                 id="bill-due-date"
                 aria-describedby="bill-due-date-error"
@@ -297,14 +297,14 @@ export function CreateBillForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="bill-description">Nota / keterangan</Label>
+            <Label htmlFor="bill-description">Notes (optional)</Label>
             <Textarea
               id="bill-description"
               aria-describedby="bill-description-error"
               aria-invalid={Boolean(shouldShow("description") && validation.errors.description)}
               className="min-h-24 resize-none bg-paper text-ink placeholder:text-ink/45"
               maxLength={500}
-              placeholder="Meja belakang, order roti telur tambah kuah."
+              placeholder="Back table — order extra side of curry."
               value={state.description}
               onBlur={() => touch("description")}
               onChange={(event) => updateField("description", event.target.value)}
@@ -317,8 +317,8 @@ export function CreateBillForm() {
           <div className="space-y-3">
             <div className="flex items-end justify-between gap-4">
               <div className="space-y-1">
-                <Label>Senarai siapa-siapa</Label>
-                <p className="text-xs text-ink/60">{participantCount}/50 orang masuk kira-kira.</p>
+                <Label>Participants</Label>
+                <p className="text-xs text-ink/60">{participantCount} of 50 splitting this bill.</p>
               </div>
               <Button
                 className="min-h-11 gap-2 border-ink/20 bg-paper text-ink hover:bg-accent"
@@ -328,7 +328,7 @@ export function CreateBillForm() {
                 onClick={addParticipant}
               >
                 <Plus className="size-4" aria-hidden="true" />
-                Tambah orang
+                Add person
               </Button>
             </div>
 
@@ -349,7 +349,7 @@ export function CreateBillForm() {
                     <div className="grid gap-3 sm:grid-cols-[1fr_1fr_44px]">
                       <div className="space-y-2">
                         <Label className="text-xs text-ink/70" htmlFor={nameField}>
-                          Nama {index + 1}
+                          Name {index + 1}
                         </Label>
                         <Input
                           id={nameField}
@@ -357,7 +357,7 @@ export function CreateBillForm() {
                           aria-invalid={Boolean(shouldShow(nameTouched) && nameError)}
                           className="min-h-11 bg-paper-soft text-ink placeholder:text-ink/45"
                           maxLength={64}
-                          placeholder="Aina"
+                          placeholder="Alex"
                           value={participant.name}
                           onBlur={() => touch(nameTouched)}
                           onChange={(event) =>
@@ -371,7 +371,7 @@ export function CreateBillForm() {
 
                       <div className="space-y-2">
                         <Label className="text-xs text-ink/70" htmlFor={phoneField}>
-                          Telefon
+                          Phone
                         </Label>
                         <Input
                           id={phoneField}
@@ -392,7 +392,7 @@ export function CreateBillForm() {
                       </div>
 
                       <Button
-                        aria-label={`Buang orang ${index + 1}`}
+                        aria-label={`Remove person ${index + 1}`}
                         className={cn(
                           "min-h-11 min-w-11 self-end border-ink/20 bg-paper text-ink hover:bg-accent",
                           participantCount <= 1 && "opacity-40",
@@ -427,7 +427,7 @@ export function CreateBillForm() {
             type="submit"
           >
             {isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-            Hantar — kira siap
+            Create bill
           </Button>
         </form>
       </CardContent>

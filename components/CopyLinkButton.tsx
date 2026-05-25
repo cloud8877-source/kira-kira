@@ -33,7 +33,7 @@ function adminSecretFromHash(hash: string) {
 export function CopyLinkButton({ url, disabled = false }: CopyLinkButtonProps) {
   async function copyUrl() {
     await navigator.clipboard.writeText(url);
-    toast.success("Dah salin!");
+    toast.success("Copied!");
   }
 
   return (
@@ -44,7 +44,7 @@ export function CopyLinkButton({ url, disabled = false }: CopyLinkButtonProps) {
       onClick={copyUrl}
     >
       <Copy className="size-4" aria-hidden="true" />
-      Salin link
+      Copy link
     </Button>
   );
 }
@@ -70,9 +70,9 @@ export function CreatedClient({ billId, title, totalCents }: CreatedClientProps)
               <KeyRound className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0 space-y-1">
-              <CardTitle className="font-display text-xl text-ink">Link admin</CardTitle>
+              <CardTitle className="font-display text-xl text-ink">Admin link</CardTitle>
               <CardDescription className="text-ink/65">
-                Simpan untuk tengok siapa dah settle.
+                Bookmark this — track who has paid.
               </CardDescription>
             </div>
           </div>
@@ -92,9 +92,9 @@ export function CreatedClient({ billId, title, totalCents }: CreatedClientProps)
               <LinkIcon className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0 space-y-1">
-              <CardTitle className="font-display text-xl text-ink">Link geng</CardTitle>
+              <CardTitle className="font-display text-xl text-ink">Public link</CardTitle>
               <CardDescription className="text-ink/65">
-                Share dalam WhatsApp group.
+                Share in your WhatsApp group.
               </CardDescription>
             </div>
           </div>

@@ -1,8 +1,8 @@
 # Kira-Kira
 
-> _Bayar sama-sama, tanpa segan._
+> _Split bills without the awkward chase._
 
-A Malaysian kopitiam-themed split bill + payment tracker.
+A kopitiam-themed split bill + payment tracker.
 Organizer creates a bill, shares one link in WhatsApp, members tap their name and mark paid, organizer verifies.
 No accounts, no friction — just settle.
 
