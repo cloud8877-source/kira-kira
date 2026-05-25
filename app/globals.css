@@ -55,17 +55,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@keyframes print-in {
-  from { mask-image: linear-gradient(to bottom, black 0%, transparent 0%); }
-  to { mask-image: linear-gradient(to bottom, black 100%, transparent 100%); }
-}
-
-@keyframes stamp-bounce {
-  from { transform: scale(0); }
-  70% { transform: scale(1.15); }
-  to { transform: scale(1); }
-}
-
 :root {
   --background: var(--color-paper);
   --foreground: var(--color-ink);
@@ -120,4 +109,15 @@
   ::selection {
     background: color-mix(in srgb, var(--color-teh) 45%, transparent);
   }
+}
+
+@keyframes print-in {
+  from { mask-image: linear-gradient(to bottom, black 0%, transparent 0%); }
+  to { mask-image: linear-gradient(to bottom, black 100%, transparent 100%); }
+}
+
+@keyframes stamp-bounce {
+  from { transform: scale(0); }
+  70% { transform: scale(1.15); }
+  to { transform: scale(1); }
 }
