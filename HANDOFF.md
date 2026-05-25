@@ -102,6 +102,84 @@ app/globals.css                      # MAY append @keyframes for the receipt pri
 
 ---
 
+## Future milestone (after M6) — M7: Receipt OCR (snap → autofill)
+
+**Status:** briefed, not started. Runs only AFTER M6 has shipped and verified. Adds a differentiator on top of the bountable MVP.
+
+**Goal:** Organizer taps **"Snap receipt"** in the `CreateBillForm`, picks an image or captures via phone camera. App pipes the image through a Cloudflare Workers AI vision model, extracts `{ title, totalCents }`, and autofills the form. User reviews and submits. Graceful fallback to manual entry if extraction fails.
+
+### Why this is M7, not M3.5
+- M4 (member confirm), M5 (organizer dashboard), and M6 (OG image + README + deploy) are the bountable core. Ship those first.
+- OCR is "delight scope" — it makes the demo wow-able but doesn't unblock the bounty's stated requirements (1–11). Adding it before the core is shipped risks the whole submission.
+- Workers AI bindings change occasionally; better to lock against the same workerd that's been running M1–M6 for weeks before adding a new binding.
+
+### Architecture
+
+- **Cloudflare Workers AI binding** added to `wrangler.jsonc` (`"ai": { "binding": "AI" }`). Re-run `npx wrangler types --env-interface CloudflareEnv` to regenerate `worker-configuration.d.ts` with the `AI: Ai` type.
+- **No new npm dependencies.** The `env.AI.run(...)` API is part of the runtime.
+- **Recommended model:** `@cf/meta/llama-3.2-11b-vision-instruct` (multimodal, returns text/JSON) — Codex/Claude should verify exact identifier when M7 starts (Cloudflare Workers AI catalog updates). Fallback model: `@cf/llava-hf/llava-1.5-7b-hf`.
+- **Pure-impl pattern (same as M2):**
+  ```
+  lib/receipt/extract.ts       # extractReceiptImpl(ai: Ai, imageBytes: Uint8Array) → { title?, totalCents?, confidence }
+  lib/receipt/prompts.ts       # buildVisionPrompt(), parseVisionResponse() — pure functions, unit-testable
+  app/actions/receipt.ts       # "use server" wrapper around extractReceiptImpl(getCloudflareContext().env.AI, ...)
+  components/SnapReceiptButton.tsx  # client: <input type="file" accept="image/*" capture="environment">, calls action, calls onExtract(parsed) callback
+  components/CreateBillForm.tsx     # MODIFY: add <SnapReceiptButton onExtract={fillFromOcr} /> above the title field; fillFromOcr merges into form state non-destructively
+  ```
+- **Prompt strategy:** Strict JSON output. Prompt instructs the model: "You are reading a restaurant receipt. Return ONLY valid JSON of shape `{\"restaurantName\": string|null, \"totalCents\": integer|null, \"currency\": \"MYR\"|null, \"confidence\": \"high\"|\"medium\"|\"low\"}`. Convert RM amounts to cents (RM 12.50 → 1250). If you cannot read a field, return null for it." Parse defensively — anything malformed → confidence "low" + nulls.
+- **Image size limit:** 5 MB. Validate before sending to AI. MIME guard: `image/jpeg`, `image/png`, `image/webp`, `image/heic`.
+- **Latency:** vision models take 2–8 s. SnapReceiptButton shows a loading state ("Reading receipt…") with the spinner pattern already in `CreateBillForm` (Loader2 from lucide-react).
+
+### Acceptance criteria
+
+1. `"Snap receipt"` button visible at the top of the create form (before title field)
+2. Tapping opens the file picker; on mobile, `capture="environment"` opens the rear camera
+3. After selection, button enters loading state, shows "Reading receipt…"
+4. On success, form fields autofill with non-null values from the OCR result. User can still edit before submit.
+5. On failure (low confidence OR no fields extracted OR model error), shows a toast: "Couldn't read the receipt — fill it in manually." Form remains usable.
+6. Image rejected before upload if > 5 MB or wrong MIME, with a clear error
+7. `lib/receipt/prompts.ts` is unit-tested (test the prompt builder + the JSON parser against several fixture responses — happy path, malformed JSON, partial fields)
+8. Coverage on `lib/receipt/**` ≥ 80% statements
+9. `npm run typecheck` clean, `npm test -- --run` clean, no regressions in M1–M6 tests
+10. Cloudflare free tier respected: each call uses ~500–2000 neurons (limit 10,000/day) — README documents the limit
+
+### Pre-stage required by Claude before dispatching Codex M7
+
+1. Add `"ai": { "binding": "AI" }` to `wrangler.jsonc`
+2. Run `npx wrangler types --env-interface CloudflareEnv` to regenerate runtime types
+3. Verify the Cloudflare account has Workers AI enabled (run `npx wrangler ai models` to list — confirms the binding works)
+4. Confirm the chosen vision model identifier is still current (Workers AI catalog drifts)
+5. Commit pre-stage as `chore(m7-prep): wrangler AI binding + regenerated types`
+
+### Files Codex may create or modify (M7)
+
+```
+wrangler.jsonc                            # Claude pre-stages the AI binding
+worker-configuration.d.ts                 # auto-regenerated, Claude pre-stages
+lib/receipt/extract.ts                    # NEW
+lib/receipt/prompts.ts                    # NEW
+app/actions/receipt.ts                    # NEW
+components/SnapReceiptButton.tsx          # NEW
+components/CreateBillForm.tsx             # MODIFY: add the button + autofill callback
+tests/receipt-prompts.test.ts             # NEW
+README.md                                 # MODIFY: document the OCR feature + Workers AI usage limits
+```
+
+### Out of scope for M7
+- Itemized line-item extraction (still equal-split MVP overall)
+- Multi-receipt handling (one receipt → one bill)
+- Saving the receipt image (no R2/storage — just transient parsing)
+- OCR for non-receipts
+
+### Risk register
+
+- **Model accuracy on faded/tiny kopitiam receipts is variable.** Mitigation: graceful manual-entry fallback, confidence threshold.
+- **Workers AI free tier (10K neurons/day)** could throttle in heavy demo use. Mitigation: README documents the limit; future paid plan if traffic warrants.
+- **Vision LLM latency (2–8s)** could feel slow. Mitigation: clear loading state, optimistic UI showing "Reading receipt…" with the bill icon.
+- **Prompt-injection risk** (an attacker submits a "receipt" image containing instructions). Mitigation: we only consume `restaurantName` (string max 120 chars), `totalCents` (integer), `currency` (enum). Even a successful prompt injection has nowhere to go — the JSON parser ignores unexpected fields.
+
+---
+
 ## Previous milestone (M3) — UI shell + landing + create flow
 
 **M3 — UI shell + landing + create flow**
@@ -252,6 +330,9 @@ Anything else outside this list = STOP-and-flag.
 | M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. |
 | M3 — UI shell + create flow | ✅ | Codex (GPT-5.5 xhigh) built it in 5 commits. CreateBillForm (436 lines, reuses lib/validation.ts schema — zero duplication), CopyLinkButton + CreatedClient, WhatsAppShareButton, success page, branded layout with Fraunces/Inter/JetBrains Mono. Claude end-to-end tested: form submits → secret in URL fragment → success page renders both copyable links → wa.me deep link correct. 19 tests still pass. Mobile-first verified at 390px (no horizontal scroll, kopi paper bg `#F7EFE2` / espresso ink `#3B2A1E` confirmed in DOM). |
 | M4 — Public bill + member confirm | 📋 | Briefed above. Pure codegen — no install/network needed. Codex's lane. |
+| M5 — Dashboard + polling + nudge | ⏳ | Queued. Brief lives in design spec (`docs/.../2026-05-25-kira-kira-design.md`). |
+| M6 — OG image + README + deploy | ⏳ | Queued. Brief lives in design spec. |
+| M7 — Receipt OCR (delight scope) | 🎁 | Briefed above. Runs ONLY after M6 ships. Adds Cloudflare Workers AI vision binding to autofill bill from a receipt photo. Differentiator for bounty judging. |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
 | M4 | ⏳ | |
