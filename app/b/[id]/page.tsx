@@ -1,15 +1,38 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BillReceipt } from "@/components/BillReceipt";
 import { ParticipantPicker } from "@/components/ParticipantPicker";
 import { PrintInAnimation } from "@/components/PrintInAnimation";
 import { getDb } from "@/db";
 import { getBillPublic } from "@/lib/bills/read";
+import { formatRm } from "@/lib/money";
 
 type PublicBillPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const bill = await getBillPublic(getDb(), id);
+  if (!bill) return { title: "Kira-Kira" };
+  return {
+    title: `${bill.title} — Kira-Kira`,
+    description: `Split bill: ${formatRm(bill.totalCents)} across ${bill.participants.length} people.`,
+    openGraph: {
+      title: bill.title,
+      description: `Split bill: ${formatRm(bill.totalCents)} across ${bill.participants.length} people.`,
+      images: [{ url: `/api/og/${id}`, width: 1200, height: 630, alt: `${bill.title} — Kira-Kira` }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: bill.title,
+      images: [`/api/og/${id}`],
+    },
+  };
+}
 
 export default async function PublicBillPage({ params }: PublicBillPageProps) {
   const { id } = await params;
