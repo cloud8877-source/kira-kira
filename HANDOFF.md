@@ -42,61 +42,72 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
-**M5 — Organizer dashboard + live polling + Nudge-on-WhatsApp**
+**M6 — OG share card + README + deploy + e2e verification**
 
-Goal: `/b/[id]/admin?k=<secret>` dashboard with progress ring, three columns (Unpaid / Pending / Paid), SWR polling every 4s, per-row Confirm/Reject for pending, Nudge-on-WhatsApp button per unpaid participant.
+Goal: WhatsApp-ready share card via `next/og` `ImageResponse` (the visible preview when the public link is pasted in WhatsApp), polished README with screenshots + demo URL + bounty submission text, scripted end-to-end smoke test against the deployed Cloudflare Worker. Production deploy lives at `kira-kira.<account>.workers.dev`.
 
 ## Voice — all in-app copy in ENGLISH
-Same English-with-warm-tone rules as M4. Reference M3/M4 components for the copy register. Status names: "Unpaid" (grey), "Pending" (amber), "Paid" (lime). Action verbs: "Confirm", "Reject", "Nudge".
+Same English voice. README is professional-but-warm, suitable for bounty judges. No marketing fluff.
 
 ## Definition of done for the current milestone
 
-**Acceptance criteria (all must pass):**
-1. `/b/[id]/admin?k=<secret>` renders the dashboard for the matching bill; wrong/missing `?k=` returns 404 via `notFound()` (not 401 — never confirms bill existence)
-2. Header shows: bill title, total RM (via `formatRm`), due date if present, and a progress ring showing `paidCount / totalParticipants` as a percentage. The ring stroke is lime when ≥ 100%, teh-amber otherwise.
-3. Three columns/sections (mobile: stacked, sm: 3-col grid): **Unpaid** (grey), **Pending verification** (amber, with member's note shown), **Paid** (lime). Each shows participant name + RM owed + status-pill.
-4. Each **Pending** row has two buttons: **Confirm** (lime) → calls `confirmPayment` action; **Reject** (sambal) → calls `rejectPayment` action. Both verify the admin secret server-side.
-5. Each **Unpaid** row has a **Nudge** button: if participant has a phone, opens `https://wa.me/<digits-only>?text=<encoded>`; otherwise copies the same message to clipboard and toast "Message copied — paste into WhatsApp." Message body: `"Hey ${name}, you still owe RM ${amount} for "${billTitle}" — settle here: ${publicUrl}"`.
-6. SWR polling: client component re-fetches via `GET /b/[id]/admin/poll?k=<secret>` every 4s. Server route validates `?k=` against the bill's admin secret hash (timing-safe). Newly-confirmed rows slide in with a soft `bg-lime/20` highlight that fades over 1.5s (CSS-only).
-7. Optimistic UI on Confirm/Reject: the row visually moves to the new column immediately. On server error, rolls back + toast.
-8. When dashboard hits 100% paid for the first time in the session, fires `canvas-confetti` (one-shot, then `sessionStorage.setItem("confetti:${billId}", "1")` to suppress on subsequent renders).
-9. `npm run typecheck` clean, `npm test -- --run` still passes (no M1–M4 regressions).
-10. Mobile-first: 390 × 844 viewport renders cleanly, all tap targets ≥ 44 px.
+This milestone is split: **Codex does the codegen, Claude does the deploy + screenshots.**
 
-## Architectural notes (mandatory)
+### Codex's slice (no network needed)
+1. `app/api/og/[id]/route.tsx` — exports `GET` using `ImageResponse` from `next/og`. Renders a kopitiam-receipt-styled JSX card (1200×630, the WhatsApp-friendly OG aspect): bill title (Fraunces serif), RM total, paid/total participants count, "Kira-Kira" wordmark, paper-tan background (`#F7EFE2`) with espresso ink (`#3B2A1E`) and teh-amber accent (`#D88A3F`). Reads bill via `getBillPublic(getDb(), id)`. Returns a fallback minimal image if bill missing (no 404 — OG should always return an image).
+2. `app/b/[id]/page.tsx` — add `generateMetadata({ params })` that fetches the bill, returns `{ title, description, openGraph: { images: [{ url: '/api/og/' + id }] }, twitter: { ... } }`.
+3. `scripts/e2e-check.sh` — bash script. Takes the deployed base URL as `$1`. Curls `/api/og/<a-known-test-bill-id>` and asserts 200 + `content-type: image/png`. Curls `/b/<test-bill-id>` and asserts 200. Curls `/b/<test-bill-id>/admin?k=fake` and asserts 404. Curls `/b/<test-bill-id>/admin/poll?k=fake` and asserts 404. Each assertion uses `set -e` + `[ "$status" = "200" ]` patterns. The TEST_BILL_ID is taken from env var or `$2` arg — script does NOT create a bill (it's a smoke check on routes, not a full create-confirm loop).
+4. `README.md` — full rewrite: project description, screenshots (Codex inserts `<!-- SCREENSHOT: ... -->` placeholders Claude fills), live demo URL placeholder `https://kira-kira.<account>.workers.dev`, "Built for the Krackeddevs bounty", stack section, run-locally section, deploy section, "Bounty requirements coverage" table mapping each of the 11 bounty items to where it's satisfied, license. Suitable for the bounty submission text box.
 
-- `app/b/[id]/admin/page.tsx` is a **server component**. Reads the bill via `getBillAdmin(getDb(), id, k)` from URL search params. Wrong/missing `k` throws `AdminUnauthorizedError` → caught and converted to `notFound()`.
-- The server component renders initial HTML (so first load is fast and SEO-friendly), then a `<DashboardClient>` client island takes over with SWR polling.
-- **`<DashboardClient>`** is a client component. Receives `initialBill: BillView` + `billId` + `adminSecret` (passed from URL via the server component). Uses `useSWR('/b/' + billId + '/admin/poll?k=' + secret, fetcher, { refreshInterval: 4000, fallbackData: initialBill })`. Refetches every 4 s. Shows the three-column board.
-- **`app/b/[id]/admin/poll/route.ts`** is a `GET` route handler. Reads `?k=` from URL, validates against bill admin hash (timing-safe via `verifySecret`). Returns `BillView` as JSON. Wrong secret → 404. No POST mutations on this route — those go through the existing server actions.
-- **Optimistic mutations:** `Confirm`/`Reject` buttons call the server action with `useTransition`. On call start, locally mutate the SWR cache via `mutate(...)` to move the row to its new column. On action error, revert.
-- **Confetti:** `canvas-confetti` fires once via `useEffect` when computed progress hits 100% AND `sessionStorage[\`confetti:${billId}\`]` is unset; then sets the key. NEW DEPENDENCY: pin `canvas-confetti` exact + signature audit.
-- **Slide-in highlight:** when a participant status changes from "pending" to "paid" between SWR refetches, briefly add a `data-just-paid` attribute on the row, CSS animates a `bg-lime/20` highlight that fades over 1.5 s.
-- **Nudge message URL helper** lives in `lib/whatsapp.ts`: `buildNudgeUrl({ name, amountCents, phone?, billTitle, publicUrl })` returns either `wa.me/<digits>?text=...` (phone present) or a plain `text:` string for clipboard. Phone normalization: strip non-digits; require ≥ 8 digits.
+### Claude's slice (network — done after Codex returns)
+5. `wrangler d1 migrations apply kira-kira-db --remote` — apply M1 migration to production D1.
+6. `npm run deploy` (which runs `opennextjs-cloudflare build && wrangler deploy`).
+7. Capture the live URL and update `README.md` + commit.
+8. Create a real demo bill on the live URL via chrome-devtools-mcp, take 3+ screenshots (landing, success page, dashboard), save under a workspace-writable path, paste paths into README.
+9. Run `scripts/e2e-check.sh <live-url>` against production, paste output into a commit.
+10. Final commit + push.
 
-## Files you may create or modify
+## Acceptance criteria (all must pass)
+1. `GET /api/og/<id>` returns `200` with `content-type: image/png` and a visually correct kopitiam-receipt OG card
+2. Pasting the public bill URL in WhatsApp Web preview shows the custom OG card (visual check)
+3. README has ≥ 3 screenshots, project description, demo URL, run-locally + deploy instructions, and the bounty-requirements table
+4. `scripts/e2e-check.sh <deployed-url>` exits 0
+5. `wrangler deploy` succeeds, app responds at `kira-kira.<account>.workers.dev`
+6. Public landing page on the live URL renders identically to local
+7. Creating a bill on the live URL works end-to-end (form → success page → admin link → poll route)
+8. `npm run typecheck` clean, all tests still pass
+9. No regressions in M1–M5 functionality
+10. README's bounty coverage table accurately lists all 11 bounty requirements + where each lives
+
+## Architectural notes (Codex's slice)
+
+- **OG image route** is a Next.js route handler using `next/og` `ImageResponse`. The JSX inside must be inline-styled (no Tailwind classes — `ImageResponse` runs in a Workers context that doesn't have the CSS pipeline). Use `style={{ ... }}` everywhere. Fonts: pass Fraunces + JetBrains Mono via the `fonts` option of `ImageResponse` (load from `next/font/google` weight files via fetch from CDN at build time — or use the system serif/mono fallback if loading proves brittle).
+- **`generateMetadata`** must be `async` and `await params`. Return `{ openGraph: { type: 'website', title, description, images: [{ url: '/api/og/' + id, width: 1200, height: 630 }] }, twitter: { card: 'summary_large_image', images: ['/api/og/' + id] } }`.
+- **OG missing-bill fallback:** if `getBillPublic` returns null, render a generic "Kira-Kira — Split bills without the awkward chase." card. Never 404 on OG (social crawlers will cache the 404).
+- **e2e-check.sh** uses bash + curl. No new deps. Stops at first failure (`set -e`). Prints colored ✅/❌ per check.
+- **README** bounty-coverage table: rows for each of the 11 requirements from the bounty page, columns: `#`, `Requirement`, `Where it lives (file:line or route)`, `Status (✅ / Bonus)`.
+
+## Files Codex may create or modify
 
 ```
-app/b/[id]/admin/page.tsx               # server: getBillAdmin + initial Dashboard render
-app/b/[id]/admin/poll/route.ts          # GET: returns BillView JSON if ?k= verifies
-components/Dashboard.tsx                # client: SWR polling + three columns + confetti trigger
-components/ProgressRing.tsx             # SVG ring, server-renderable
-components/StatusColumn.tsx             # column container with header + count
-components/ParticipantRow.tsx           # one row (used in all three columns), with action buttons per status
-components/NudgeButton.tsx              # client: opens wa.me or copies-to-clipboard fallback
-components/ConfettiOnSettled.tsx        # client: useEffect that fires canvas-confetti once
-lib/whatsapp.ts                         # buildNudgeUrl + normalizePhone (pure, unit-tested)
-tests/whatsapp.test.ts                  # tests for normalizePhone + buildNudgeUrl
+app/api/og/[id]/route.tsx           # NEW: ImageResponse OG card
+app/b/[id]/page.tsx                 # MODIFY: add generateMetadata
+README.md                           # FULL REWRITE: description, screenshots placeholders, demo URL, bounty table
+scripts/e2e-check.sh                # NEW: bash + curl smoke test
 ```
 
-**Approved new dep (Claude pre-stages before Codex dispatch):**
-- `canvas-confetti` (exact-pinned, signature-verified). Plus `@types/canvas-confetti` as devDep.
+**Claude appends after Codex (deploy + verify):**
+- Updates README.md to fill the `<!-- SCREENSHOT: ... -->` placeholders with real captured screenshots
+- Commits screenshots (paths TBD — likely `docs/screenshots/*.png` under the repo)
+- Updates README with the actual live URL
+- Runs `wrangler deploy` and `scripts/e2e-check.sh`
 
-**Do NOT touch in M5:**
-- `app/page.tsx`, `app/created/[id]/`, `app/b/[id]/page.tsx`, `app/b/[id]/me/`, all M3/M4 components — those are settled
-- `lib/auth.ts`, `lib/bills/**`, `lib/payments/**`, `lib/money.ts`, `lib/validation.ts`, `db/**`, `app/actions/**` (M2 — only USE)
+**No new dependencies allowed.** `next/og` is part of Next.js. Bash + curl already installed.
+
+**Do NOT touch in M6:**
+- Anything under `app/page.tsx`, `app/created/`, `app/b/[id]/me/`, `app/b/[id]/admin/`, all M3/M4/M5 components
+- `lib/**`, `db/**`, `app/actions/**`
 - M1 config files
-- `app/api/og/` — that's M6
 
 ---
 
@@ -328,8 +339,8 @@ Anything else outside this list = STOP-and-flag.
 | M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. |
 | M3 — UI shell + create flow | ✅ | Codex (GPT-5.5 xhigh) built it in 5 commits. CreateBillForm (436 lines, reuses lib/validation.ts schema — zero duplication), CopyLinkButton + CreatedClient, WhatsAppShareButton, success page, branded layout with Fraunces/Inter/JetBrains Mono. Claude end-to-end tested: form submits → secret in URL fragment → success page renders both copyable links → wa.me deep link correct. 19 tests still pass. Mobile-first verified at 390px (no horizontal scroll, kopi paper bg `#F7EFE2` / espresso ink `#3B2A1E` confirmed in DOM). |
 | M4 — Public bill + member confirm | ✅ | Codex built it in 8 commits. Receipt + PrintInAnimation + PendingStamp + ParticipantPicker (localStorage with try/catch) + public bill page + MarkPaidForm (optimistic) + member confirm with `<noscript>` fallback. Typecheck clean, 19 tests pass. CSS-only keyframes. Pushed through d9dd9fd. |
-| M5 — Dashboard + polling + nudge | 📋 | Briefed above. Claude pre-stages canvas-confetti, then Codex dispatch. |
-| M6 — OG image + README + deploy | ⏳ | Queued. Brief lives in design spec. |
+| M5 — Dashboard + polling + nudge | ✅ | Codex single commit 7b1134a. DashboardClient with SWR (4s refresh), poll route w/ getBillAdmin (404 on wrong k), 3 columns (Unpaid/Pending/Paid), optimistic Confirm/Reject, NudgeButton with wa.me + clipboard fallback, ConfettiOnSettled with sessionStorage gate, ProgressRing SVG. 23 tests pass (lib/whatsapp 100% coverage). |
+| M6 — OG image + README + deploy | 📋 | Split: Codex builds OG route + README + e2e script (no network); Claude deploys + screenshots + final commit. |
 | M7 — Receipt OCR (delight scope) | 🎁 | Briefed above. Runs ONLY after M6 ships. Adds Cloudflare Workers AI vision binding to autofill bill from a receipt photo. Differentiator for bounty judging. |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
