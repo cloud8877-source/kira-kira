@@ -31,12 +31,19 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 ## Features
 
 - 🧾 Create bills with title, total, due date, description, and dynamic participant list (1–50 people)
+- 📷 **Snap a receipt** and autofill the title + total via Cloudflare Workers AI vision (free tier, runs at the edge)
 - 🔗 Two-link sharing model: admin link to track, public link to share — secret in URL fragment, never server logs
 - 📱 Mobile-first, designed for WhatsApp opens
 - ⚡ Live dashboard via SWR polling (4-second refresh)
 - 💬 Nudge unpaid people with one tap — auto-opens WhatsApp with the right text
 - 🎉 Confetti when fully settled
 - 🎨 Custom OG share card so WhatsApp previews look beautiful
+
+### Receipt OCR (bonus)
+
+Tap **Snap receipt** at the top of the create-bill form to capture or upload a photo of a restaurant receipt. The image goes through `@cf/meta/llama-3.2-11b-vision-instruct` on Cloudflare Workers AI, returns a structured `{ restaurantName, totalCents }`, and autofills the form non-destructively (your typed values aren't overwritten). Falls back gracefully if the model returns low confidence — you can always type values manually.
+
+Free Workers AI tier allows ~10,000 neurons/day; a vision pass typically costs 500–2,000 neurons.
 
 ## Bounty requirements coverage
 
@@ -51,7 +58,7 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 | 7 | Creative Theme / Branding | Kira-Kira / Kopi-Susu visual system | ✅ |
 | 8 | GitHub Repository | https://github.com/cloud8877-source/kira-kira (public) | ✅ |
 | 9 | Short Project Description | This README | ✅ |
-| 10 | Optional Bonus Features | OG share card, live polling, nudge-on-WhatsApp, confetti, animated receipt | ✅ Bonus |
+| 10 | Optional Bonus Features | OG share card, live polling, nudge-on-WhatsApp, confetti, animated receipt, **receipt OCR via Workers AI** | ✅ Bonus |
 | 11 | Minimum Acceptance Criteria | `scripts/e2e-check.sh` passes against deployed URL | ✅ |
 
 ## Running locally

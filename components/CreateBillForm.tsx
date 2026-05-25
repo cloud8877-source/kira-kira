@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toCents } from "@/lib/money";
+import { SnapReceiptButton } from "@/components/SnapReceiptButton";
+import { toCents, toRm } from "@/lib/money";
 import { createBillSchema, type CreateBillInput } from "@/lib/validation";
+import type { ParsedReceipt } from "@/lib/receipt/prompts";
 import { cn } from "@/lib/utils";
 
 type ParticipantRow = {
@@ -162,6 +164,22 @@ export function CreateBillForm() {
     setState((current) => ({ ...current, [field]: value }));
   }
 
+  function fillFromOcr(parsed: ParsedReceipt) {
+    setServerError(null);
+    setState((current) => {
+      const next = { ...current };
+      if (parsed.restaurantName && !current.title.trim()) {
+        next.title = parsed.restaurantName;
+      }
+      if (parsed.totalCents != null && !current.totalRm.trim()) {
+        next.totalRm = toRm(parsed.totalCents);
+      }
+      return next;
+    });
+    if (parsed.restaurantName) touch("title");
+    if (parsed.totalCents != null) touch("totalRm");
+  }
+
   function updateParticipant(key: string, field: "name" | "phone", value: string) {
     setServerError(null);
     setState((current) => ({
@@ -241,6 +259,8 @@ export function CreateBillForm() {
       </CardHeader>
       <CardContent>
         <form className="space-y-5" noValidate onSubmit={handleSubmit}>
+          <SnapReceiptButton onExtract={fillFromOcr} disabled={isPending} />
+
           <div className="space-y-2">
             <Label htmlFor="bill-title">Bill title</Label>
             <Input
