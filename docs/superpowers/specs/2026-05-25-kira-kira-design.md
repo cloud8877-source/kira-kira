@@ -16,7 +16,7 @@ This plan builds **Kira-Kira**, a Malaysian kopitiam-themed tracker. Decisions w
 - **Auth:** No accounts. Two token-bearing URLs per bill (admin + public)
 - **Payment flow:** Three-state — `unpaid` → `pending` (member self-marked) → `paid` (organizer verified)
 - **Split:** Equal-only for MVP (covers 80 % of real cases; preserves polish budget)
-- **Stack:** Next.js 15 (App Router) + `@opennextjs/cloudflare` → Cloudflare **Workers** + D1 + Drizzle + shadcn/ui + Tailwind
+- **Stack:** Next.js 16 (App Router) + `@opennextjs/cloudflare` → Cloudflare **Workers** + D1 + Drizzle + shadcn/ui + Tailwind
 - **Bonuses committed:** WhatsApp-optimized OG share card, animated kopitiam receipt, nudge-on-WhatsApp button, live-polling dashboard (free), single Kopi-Susu light theme (no dark mode)
 
 ---
@@ -72,7 +72,7 @@ Admin link → dashboard: progress ring, three columns (Belum bayar / Tengok dul
 
 ## Stack & runtime
 
-- **Next.js 15** (App Router, React 19, Server Actions)
+- **Next.js 16** (App Router, React 19, Server Actions)
 - **`@opennextjs/cloudflare`** adapter → builds for **Cloudflare Workers** (Workers with static-asset binding is the 2026 model; classic Pages is legacy)
 - **`wrangler.jsonc`** with bindings: `DB` (D1), env `APP_URL`
 - **Local dev:** `wrangler dev` (full Workers runtime + local D1 emulation) — used as `npm run dev`
@@ -267,7 +267,7 @@ Each milestone is one Codex session. Codex implements; Claude reviews the diff b
 
 ### M1 — Project skeleton + D1 + Drizzle + healthcheck (Codex)
 
-- *Goal:* Empty Next.js 15 app running on `wrangler dev` with D1 binding live and `GET /api/health` returning `{ok:true, result:2}` from a `SELECT 1+1` against D1.
+- *Goal:* Empty Next.js 16 app running on `wrangler dev` with D1 binding live and `GET /api/health` returning `{ok:true, result:2}` from a `SELECT 1+1` against D1.
 - *Files:* `package.json`, `next.config.ts`, `wrangler.jsonc`, `drizzle.config.ts`, `db/{schema,index}.ts`, `app/api/health/route.ts`, `app/layout.tsx`, `app/page.tsx` (placeholder), `tailwind.config.ts`, `app/globals.css`, `.env.example`
 - *Acceptance:*
   - `npm run dev` (wraps `wrangler dev`) boots clean
@@ -339,7 +339,7 @@ Committed at repo root, updated by Claude before each Codex dispatch:
 
 ## Mission
 Build a Malaysian-kopitiam-themed split bill tracker. Stack is locked:
-Next.js 15 (App Router) + OpenNext on Cloudflare Workers + D1 + Drizzle +
+Next.js 16 (App Router) + OpenNext on Cloudflare Workers + D1 + Drizzle +
 shadcn/ui + Tailwind. Full design and acceptance criteria are in
 `docs/superpowers/specs/2026-05-25-kira-kira-design.md` — read it before
 touching code.

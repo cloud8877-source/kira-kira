@@ -14,7 +14,7 @@ Built for the [Krackeddevs split bill bounty](https://krackeddevs.com/code/bount
 
 ## Stack
 
-- **Next.js 15** (App Router, React 19, Server Actions)
+- **Next.js 16** (App Router, React 19, Server Actions)
 - **`@opennextjs/cloudflare`** → Cloudflare **Workers**
 - **Cloudflare D1** (serverless SQLite) + **Drizzle ORM**
 - **Tailwind** + **shadcn/ui** + **Zod** + **SWR**

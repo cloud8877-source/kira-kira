@@ -4,7 +4,7 @@
 
 Build a Malaysian-kopitiam-themed split bill tracker. Organizer creates a bill,
 gets an admin link + a public WhatsApp-shareable link; members tap their name
-and mark paid; organizer verifies. Stack is locked: Next.js 15 (App Router) +
+and mark paid; organizer verifies. Stack is locked: Next.js 16 (App Router) +
 `@opennextjs/cloudflare` on Cloudflare Workers + D1 + Drizzle + shadcn/ui +
 Tailwind.
 
@@ -44,7 +44,7 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 **M1 — Project skeleton + D1 + Drizzle + healthcheck**
 
-Goal: An empty Next.js 15 app boots under `wrangler dev` with a live D1 binding, and a `GET /api/health` route returns `{"ok":true,"result":2}` by running `SELECT 1+1` against D1.
+Goal: An empty Next.js 16 app boots under `wrangler dev` with a live D1 binding, and a `GET /api/health` route returns `{"ok":true,"result":2}` by running `SELECT 1+1` against D1.
 
 ## Definition of done for the current milestone
 

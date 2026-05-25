@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f7efe2;
+  --color-paper-soft: #efe5d3;
+  --color-ink: #3b2a1e;
+  --color-teh: #d88a3f;
+  --color-lime: #5c8a4a;
+  --color-sambal: #c24b3a;
+}
+
+html,
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
