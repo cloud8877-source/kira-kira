@@ -42,15 +42,63 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
-> _Set per dispatch._ Initial value: **M1 — Project skeleton + D1 + Drizzle + healthcheck**
+**M1 — Project skeleton + D1 + Drizzle + healthcheck**
+
+Goal: An empty Next.js 15 app boots under `wrangler dev` with a live D1 binding, and a `GET /api/health` route returns `{"ok":true,"result":2}` by running `SELECT 1+1` against D1.
 
 ## Definition of done for the current milestone
 
-> _Inlined per dispatch from the spec's acceptance criteria + verification command._
+**Acceptance criteria (all must pass):**
+1. `npm run dev` (which wraps `wrangler dev`) starts without error and serves on `localhost:8787`
+2. `curl -fsS localhost:8787/api/health` returns `{"ok":true,"result":2}`
+3. `drizzle-kit generate` produces a migration SQL file under `drizzle/`
+4. `wrangler d1 execute kira-kira-db --local --file=drizzle/0000_*.sql` succeeds
+5. `package-lock.json` is committed; `package.json` has exact-pinned versions (no `^`/`~`)
+6. `npm audit signatures` passes (no missing/invalid signatures)
+7. Repository builds cleanly: `npm run build` (OpenNext build) succeeds
+
+**Verification command:**
+```bash
+npm run dev &
+sleep 5
+curl -fsS localhost:8787/api/health | grep -q '"ok":true' && echo "M1 PASS" || echo "M1 FAIL"
+kill %1
+```
+
+**Install protocol (mandatory — see Supply chain hygiene section):**
+```bash
+# First install only (no lockfile yet):
+npm install --ignore-scripts --package-lock-only   # generate lockfile only
+# Inspect package-lock.json for the EXACT versions resolved
+# Cross-check resolved package URLs/integrities against current Shai-Hulud IOC lists
+npm ci --ignore-scripts                             # actual install, no postinstall
+npm audit signatures                                # verify provenance
+# Only then run any required postinstall manually after review
+```
 
 ## Files you may create or modify
 
-> _Inlined per dispatch from the spec's file list._
+```
+package.json                     # exact-pinned versions only
+package-lock.json                # committed
+next.config.ts                   # withOpenNext() wrapped
+wrangler.jsonc                   # name, compatibility_date, d1_databases binding "DB", assets binding
+drizzle.config.ts                # dialect: sqlite, driver: d1-http (or local equivalent)
+tsconfig.json
+.dev.vars.example                # if any local-only env needed
+db/schema.ts                     # minimal schema for healthcheck — can be empty exports
+db/index.ts                      # getDb() with getCloudflareContext, React cache
+app/layout.tsx                   # bare html/body, Inter font, light theme stub
+app/page.tsx                     # placeholder "Kira-Kira coming soon"
+app/api/health/route.ts          # returns {ok, result} from SELECT 1+1
+app/globals.css                  # Tailwind directives only at M1
+tailwind.config.ts
+postcss.config.mjs
+.env.example
+README.md                        # add "npm run dev" / "npm run deploy" sections
+```
+
+Do NOT touch: anything under `app/b/`, `app/created/`, `app/actions/`, `components/`, `lib/`, `tests/`, `scripts/` — those belong to later milestones.
 
 ## What was built in previous milestones
 
@@ -58,8 +106,8 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 | Milestone | Status | Notes |
 |---|---|---|
-| M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to GitHub. |
-| M1 | ⏳ | Pending Codex dispatch. |
+| M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to https://github.com/cloud8877-source/kira-kira (public). HANDOFF + design spec committed. |
+| M1 | 📋 | Briefed above. Ready for Codex dispatch. |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
 | M4 | ⏳ | |
