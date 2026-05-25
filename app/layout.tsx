@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import "./globals.css";
-import { Geist } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import "./globals.css";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-display" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Kira-Kira",
@@ -16,8 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className="min-h-screen antialiased">{children}</body>
+    <html lang="en-MY" className={cn(fraunces.variable, inter.variable, mono.variable, "font-sans")}>
+      <body className="min-h-screen antialiased">
+        {children}
+        <Toaster position="bottom-center" />
+      </body>
     </html>
   );
 }
