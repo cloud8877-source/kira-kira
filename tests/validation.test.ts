@@ -51,6 +51,34 @@ describe("validation schemas", () => {
     ).toThrow(z.ZodError);
   });
 
+  it("coerces empty optional fields to undefined", () => {
+    const parsed = createBillSchema.parse({
+      ...validCreateInput,
+      description: "   ",
+      dueDate: "",
+      participants: [{ name: "Amin", phone: "  " }],
+    });
+    expect(parsed.description).toBeUndefined();
+    expect(parsed.dueDate).toBeUndefined();
+    expect(parsed.participants[0].phone).toBeUndefined();
+  });
+
+  it("passes through null and undefined optional dates", () => {
+    const parsedNull = createBillSchema.parse({ ...validCreateInput, dueDate: null });
+    const parsedUndef = createBillSchema.parse({ ...validCreateInput, dueDate: undefined });
+    expect(parsedNull.dueDate).toBeUndefined();
+    expect(parsedUndef.dueDate).toBeUndefined();
+  });
+
+  it("treats empty mark-paid note as undefined", () => {
+    const parsed = markPaidSchema.parse({
+      billId: "bill-id",
+      participantId: "participant-id",
+      note: "   ",
+    });
+    expect(parsed.note).toBeUndefined();
+  });
+
   it("validates payment action inputs", () => {
     expect(
       markPaidSchema.parse({
