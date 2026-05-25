@@ -27,6 +27,19 @@ criteria. Do not start coding without reading it.
 - **If blocked, stop and write what you tried + what you need.** Do not
   improvise around acceptance criteria.
 
+## Supply chain hygiene (M1 install boundary — non-negotiable)
+
+The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromising 160+ packages including @antv, TanStack, and Mistral. It exfiltrates `GH_TOKEN`, `CLOUDFLARE_API_TOKEN`, AWS keys, and `~/.npmrc` via malicious postinstall scripts. Before any `npm install`:
+
+- **Pin EXACT versions** in `package.json` — no `^`, no `~`. Every dep has a literal version.
+- **Commit `package-lock.json`** on first install. Subsequent runs use `npm ci`, never `npm install`.
+- **First install uses `npm ci --ignore-scripts`**, then run any required postinstall manually after reviewing it.
+- **Run `npm audit signatures`** after install to verify package provenance (npm ≥ 9.5).
+- **Never put tokens in `~/.npmrc`.** Wrangler/gh/AWS tokens should be short-lived and shell-env-only.
+- **Approved dep list for M1** (verify each is NOT on current public IOC feeds before installing):
+  `next`, `react`, `react-dom`, `@opennextjs/cloudflare`, `wrangler`, `drizzle-orm`, `drizzle-kit`, `@cloudflare/workers-types`, `tailwindcss`, `postcss`, `autoprefixer`, `zod`, `swr`, `nanoid`, `vitest`, `@types/node`, `typescript`, `eslint`, `eslint-config-next`. shadcn components are copied via the shadcn CLI, not installed as a package.
+- If a dep request falls outside this list, STOP and flag it.
+
 ## Current milestone
 
 > _Set per dispatch._ Initial value: **M1 — Project skeleton + D1 + Drizzle + healthcheck**
