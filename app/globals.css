@@ -121,3 +121,18 @@
   70% { transform: scale(1.15); }
   to { transform: scale(1); }
 }
+
+@keyframes just-paid-highlight {
+  0% {
+    background-color: rgb(92 138 74 / 0.20);
+    transform: translateY(6px);
+  }
+  100% {
+    background-color: transparent;
+    transform: translateY(0);
+  }
+}
+
+[data-just-paid="true"] {
+  animation: just-paid-highlight 1.5s ease-out;
+}
