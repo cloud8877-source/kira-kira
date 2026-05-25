@@ -2,8 +2,9 @@
 
 > _Split bills without the awkward chase._
 
-[hero screenshot placeholder]
-<!-- SCREENSHOT: docs/screenshots/landing.png -->
+<p align="center">
+  <img src="./docs/screenshots/landing.png" alt="Kira-Kira landing page on iPhone — kopi-paper background, Fraunces serif headline, branded create-bill form" width="320">
+</p>
 
 A kopitiam-themed split bill + payment tracker built for the [Krackeddevs Split Bill bounty](https://krackeddevs.com/code/bounty/split-bill-payment-tracker-web-app).
 
@@ -11,13 +12,13 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 
 ## Live demo
 
-**[https://kira-kira.<account>.workers.dev](https://kira-kira.<account>.workers.dev)** ← Claude will fill this in after deploy
+**👉 [kira-kira.cloud8877.workers.dev](https://kira-kira.cloud8877.workers.dev)**
 
-[success screenshot placeholder]
-<!-- SCREENSHOT: docs/screenshots/created.png -->
-
-[dashboard screenshot placeholder]
-<!-- SCREENSHOT: docs/screenshots/dashboard.png -->
+<p align="center">
+  <img src="./docs/screenshots/created.png" alt="Success page — two copyable links (admin + public) and a WhatsApp share button" width="320">
+  &nbsp;
+  <img src="./docs/screenshots/dashboard.png" alt="Organizer dashboard — 25% progress ring, three-column board with Unpaid / Pending verification / Paid, Nudge buttons on unpaid, Confirm/Reject on pending" width="320">
+</p>
 
 ## Stack
 
@@ -42,7 +43,7 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 | # | Requirement | Where it lives | Status |
 |---|-------------|----------------|--------|
 | 1 | Bill Creation | `components/CreateBillForm.tsx` + `app/actions/bills.ts` | ✅ |
-| 2 | Shareable Bill Page | `app/b/[id]/page.tsx` + `app/api/og/[id]/route.tsx` | ✅ |
+| 2 | Shareable Bill Page | `app/b/[id]/page.tsx` + branded OG card at `/og.png` | ✅ |
 | 3 | Member Payment Confirmation | `app/b/[id]/me/[pid]/page.tsx` + `app/actions/payments.ts` | ✅ |
 | 4 | Organizer Dashboard | `app/b/[id]/admin/page.tsx` + `components/DashboardClient.tsx` | ✅ |
 | 5 | Payment Progress Display | `components/ProgressRing.tsx` + 3-column board | ✅ |
@@ -78,7 +79,7 @@ npm run deploy           # opennextjs-cloudflare build + wrangler deploy
 ```bash
 npm test            # vitest, ~ 23 unit tests
 npm run typecheck   # tsc --noEmit
-./scripts/e2e-check.sh https://kira-kira.<account>.workers.dev
+./scripts/e2e-check.sh https://kira-kira.cloud8877.workers.dev
 ```
 
 ## Architecture

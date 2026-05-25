@@ -23,13 +23,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     openGraph: {
       title: bill.title,
       description: `Split bill: ${formatRm(bill.totalCents)} across ${bill.participants.length} people.`,
-      images: [{ url: `/api/og/${id}`, width: 1200, height: 630, alt: `${bill.title} — Kira-Kira` }],
+      images: [{ url: `/og.png`, width: 1200, height: 630, alt: `${bill.title} — Kira-Kira` }],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: bill.title,
-      images: [`/api/og/${id}`],
+      images: [`/og.png`],
     },
   };
 }

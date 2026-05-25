@@ -35,12 +35,12 @@ echo "Testing $BASE_URL..."
 
 check "Landing page 200" "$BASE_URL/" "200" "text/html"
 check "Health endpoint OK" "$BASE_URL/api/health" "200" "application/json"
+check "Static OG card served" "$BASE_URL/og.png" "200" "image/png"
 check "Wrong-secret admin → 404" "$BASE_URL/b/notarealbill/admin?k=fake" "404"
 check "Wrong-secret poll → 404" "$BASE_URL/b/notarealbill/admin/poll?k=fake" "404"
 
 if [ -n "$TEST_BILL_ID" ]; then
   check "Public bill page" "$BASE_URL/b/$TEST_BILL_ID" "200" "text/html"
-  check "OG image returns PNG" "$BASE_URL/api/og/$TEST_BILL_ID" "200" "image/png"
 fi
 
 echo ""
