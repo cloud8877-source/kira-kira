@@ -42,6 +42,62 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
+**M4 — Public bill page + member confirm flow**
+
+Goal: `/b/[id]` "prints in" as a kopitiam receipt showing the bill + participant list. Member taps their name (remembered via `localStorage`), goes to `/b/[id]/me/[pid]`, marks themselves paid (with optional Maybank-ref-style note), status flips to amber "Tengok dulu (pending)".
+
+## Definition of done for the current milestone
+
+**Acceptance criteria (all must pass):**
+1. First visit to `/b/[id]` shows the receipt + a "Pilih nama anda" picker; tapping a name stores `{ billId, participantId }` in `localStorage` and routes to `/b/[id]/me/[pid]`
+2. Subsequent visits read the saved pick from `localStorage` and skip the picker (route straight to the confirm view) — but show a small "Bukan saya" link to clear the choice
+3. The confirm view shows: bill title, participant's amount owed (RM X.YZ via `formatRm`), optional note textarea (max 200 chars), "Saya dah bayar" button
+4. Submitting calls `markPaid` server action → status flips to `pending` → amber "Tengok dulu" stamp animation appears, button becomes disabled with "Tunggu organizer confirm…"
+5. The receipt has a `PrintInAnimation` reveal on load (CSS-only mask animation — no JS animation libraries)
+6. **No-JS fallback**: `/b/[id]` read view renders fully with JS disabled (RSC). The confirm form falls back to a clear "Hidupkan JavaScript untuk mark paid" message if JS is off (use `<noscript>`)
+7. `npm run typecheck` clean
+8. M2 vitest suite still passes (no regressions)
+9. Mobile-first: 390 × 844 viewport renders cleanly, all tap targets ≥ 44 px
+
+## Architectural notes (mandatory)
+
+- `/b/[id]/page.tsx` is a **server component**. Reads bill via `getBillPublic(getDb(), id)`. Renders `<Receipt>` (server-renderable) + `<ParticipantPicker>` (client island).
+- `<ParticipantPicker>` is a client component that on mount:
+  1. Reads `localStorage[\`kira-kira:${billId}\`]` for the participant id
+  2. If present, routes `router.replace('/b/' + billId + '/me/' + savedPid)` immediately
+  3. If absent, renders the tap-list
+- `/b/[id]/me/[pid]/page.tsx` is also a server component. Reads bill + verifies pid exists. Renders `<Receipt>` + `<MarkPaidForm>` (client).
+- `<MarkPaidForm>` is a client component using `useTransition`; calls the `markPaid` server action; on success, optimistic state shows the pending stamp.
+- `<Receipt>` is purely presentational; takes `bill: BillView` as a prop. Server-renderable. Used by both `/b/[id]` and `/b/[id]/me/[pid]`.
+- `<PrintInAnimation>` is a tiny client wrapper (`useEffect` adds a class for the CSS keyframes after mount). Pure CSS animation — no framer-motion / no animation library.
+- "Bukan saya" link: clears localStorage entry and routes back to `/b/[id]`.
+
+## Files you may create or modify
+
+```
+app/b/[id]/page.tsx                  # server: bill load + Receipt + ParticipantPicker
+app/b/[id]/me/[pid]/page.tsx         # server: bill+participant load + Receipt + MarkPaidForm
+components/Receipt.tsx               # server-renderable presentational receipt
+components/ParticipantPicker.tsx     # client: localStorage + tap-list
+components/MarkPaidForm.tsx          # client: form + useTransition + markPaid action
+components/PrintInAnimation.tsx      # client: CSS keyframe trigger
+components/PendingStamp.tsx          # tiny client/server stamp visual (amber, slightly rotated)
+app/globals.css                      # MAY append @keyframes for the receipt print-in mask
+```
+
+**Do NOT touch in M4:**
+- `app/page.tsx`, `app/created/[id]/page.tsx`, `components/CreateBillForm.tsx`, `components/CopyLinkButton.tsx`, `components/WhatsAppShareButton.tsx` (M3)
+- `lib/**`, `app/actions/**`, `db/**` (M2 settled — only USE these)
+- `wrangler.jsonc`, `next.config.ts`, `open-next.config.ts`, `drizzle.config.ts`, `tsconfig.json`, `vitest.config.ts` (M1)
+- `tests/**` (Optionally extend if you write a new pure helper — otherwise leave)
+- `app/b/[id]/admin/` and `app/api/og/` — those are M5/M6
+
+**No new dependencies allowed.** Everything needed is already installed (Next.js + React + Tailwind + shadcn primitives + lucide-react).
+
+---
+
+## Previous milestone (M3) — UI shell + landing + create flow
+
 **M3 — UI shell + landing + create flow**
 
 Goal: Branded shell (Kopi-Susu palette, fonts, paper texture), `/` landing with a working `CreateBillForm`, and `/created/[id]` success page with two copyable links + a WhatsApp share button. Mobile-first. No bill viewing yet (M4 owns that).
@@ -187,8 +243,9 @@ Anything else outside this list = STOP-and-flag.
 |---|---|---|
 | M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to https://github.com/cloud8877-source/kira-kira (public). |
 | M1 — Skeleton + D1 + healthcheck | ✅ | Claude executed (Codex sandbox has no npm/wrangler network). Next.js 16.2.6 + OpenNext 1.19.11 + D1 (id 23866d8c-...) + Drizzle 0.45.2 + Tailwind v4.3.0. `/api/health` returns `{ok:true, result:2}`. 672 packages, all with verified registry signatures. Spec deviation: dev script is `next dev` (OpenNext-recommended), `wrangler dev` is now `npm run preview` against the built worker. |
-| M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. Claude added 1 review-fix commit covering empty-string preprocess branches. Pushed through `c631026`. |
-| M3 — UI shell + create flow | 📋 | Briefed above. Needs Claude pre-stage for `npx shadcn init` + `npx shadcn add` (network), then Codex builds the React forms/components. |
+| M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. |
+| M3 — UI shell + create flow | ✅ | Codex (GPT-5.5 xhigh) built it in 5 commits. CreateBillForm (436 lines, reuses lib/validation.ts schema — zero duplication), CopyLinkButton + CreatedClient, WhatsAppShareButton, success page, branded layout with Fraunces/Inter/JetBrains Mono. Claude end-to-end tested: form submits → secret in URL fragment → success page renders both copyable links → wa.me deep link correct. 19 tests still pass. Mobile-first verified at 390px (no horizontal scroll, kopi paper bg `#F7EFE2` / espresso ink `#3B2A1E` confirmed in DOM). |
+| M4 — Public bill + member confirm | 📋 | Briefed above. Pure codegen — no install/network needed. Codex's lane. |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
 | M4 | ⏳ | |
