@@ -42,6 +42,68 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
+**M3 — UI shell + landing + create flow**
+
+Goal: Branded shell (Kopi-Susu palette, fonts, paper texture), `/` landing with a working `CreateBillForm`, and `/created/[id]` success page with two copyable links + a WhatsApp share button. Mobile-first. No bill viewing yet (M4 owns that).
+
+## Definition of done for the current milestone
+
+**Acceptance criteria (all must pass):**
+1. Creating a bill via `/`'s form redirects to `/created/[id]` with the admin secret in the **URL fragment** (`#k=...`), not the query string
+2. The success page shows two distinct copyable links: admin (`/b/[id]/admin?k=<secret>`) and public (`/b/[id]`)
+3. WhatsApp share button opens `https://wa.me/?text=<encoded message with public link>`
+4. Form validates client-side via the SAME Zod schema in `lib/validation.ts` (no schema duplication)
+5. iPhone-14 viewport (390 × 844) renders without horizontal scroll — verify via `chrome-devtools-mcp` resize + screenshot
+6. Participant rows are add/remove dynamic (min 1, max 50)
+7. All shadcn primitives sourced via `npx shadcn add` (NOT hand-written) and pinned exact in package.json
+8. `npm run typecheck` clean, `npm run lint` clean
+9. The receipt-print + paper-grain feel applied — landing has paper texture, copy uses warm Malaysian-English voice (e.g., "Buat bil baru", "Salin link", "Hantar kat WhatsApp")
+10. App loads visibly in `npm run dev` on port 8787 (manual visual check via chrome-devtools-mcp)
+
+## Architectural notes (mandatory)
+
+- Use `next/font` for **Fraunces** (serif headings) + **Inter** (body) + **JetBrains Mono** (receipt amounts). No CDN font links.
+- shadcn style: **"new-york"** (more refined shadows match the polished kopitiam feel)
+- Server action `createBill` returns `{ id, adminSecret }` — adminSecret goes in the URL fragment via `router.replace('/created/' + id + '#k=' + secret)` so it never appears in server logs
+- Success page reads the bill via a public read (no secret needed for the basic fields); admin secret stays client-side as fragment, then displayed for copy
+- Paper-grain: subtle CSS background pattern (SVG or noise gradient) on `body`. Keep CSS-only — no image dependencies.
+
+## Files you may create or modify
+
+```
+app/layout.tsx                       # next/font setup + global metadata
+app/page.tsx                         # landing layout + <CreateBillForm />
+app/created/[id]/page.tsx            # success: <CopyLinkButton /> x 2 + <WhatsAppShareButton />
+app/globals.css                      # finalize Kopi-Susu tokens, paper-grain background
+components/ui/button.tsx             # shadcn add
+components/ui/input.tsx              # shadcn add
+components/ui/label.tsx              # shadcn add
+components/ui/textarea.tsx           # shadcn add
+components/ui/card.tsx               # shadcn add
+components/ui/sonner.tsx             # shadcn add (toast for "Copied!" feedback)
+components/CreateBillForm.tsx        # client form, dynamic participants, Zod-validated
+components/CopyLinkButton.tsx        # client, navigator.clipboard.writeText, toast on success
+components/WhatsAppShareButton.tsx   # builds wa.me/?text=... link, anchor with target="_blank"
+lib/utils.ts                         # shadcn cn() helper (created by shadcn init)
+components.json                      # shadcn config (created by shadcn init)
+```
+
+**Pre-staged by Claude before Codex dispatch:**
+- `npx shadcn init` (creates components.json + lib/utils.ts + installs cva + clsx + tailwind-merge + lucide-react)
+- `npx shadcn add button input label textarea card sonner` (creates components/ui/*.tsx + installs @radix-ui/* primitives)
+- Exact-pin any newly-added deps in package.json (override shadcn's `^` defaults)
+- Run `npm audit signatures` after
+
+**Do NOT touch in M3:**
+- `app/b/`, `app/api/og/` (M4, M6)
+- `lib/auth.ts`, `lib/money.ts`, `lib/validation.ts` (M2 settled, except: extend validation if a form-specific schema needs splitting)
+- `db/schema.ts`, drizzle/, wrangler.jsonc, next.config.ts (M1)
+- `app/actions/` (M2 implemented — only USE them, don't modify)
+
+---
+
+## Previous milestone (M2) — server actions + tests
+
 **M2 — Server actions + Zod validation + unit tests**
 
 Goal: All four server actions (`createBill`, `markPaid`, `confirmPayment`, `rejectPayment`) implemented with Zod-validated boundaries, timing-safe admin token verification, and ≥ 80 % unit test coverage on `lib/` and `actions/`. Headless — no UI work yet.
@@ -124,8 +186,9 @@ Anything else outside this list = STOP-and-flag.
 | Milestone | Status | Notes |
 |---|---|---|
 | M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to https://github.com/cloud8877-source/kira-kira (public). |
-| M1 — Skeleton + D1 + healthcheck | ✅ | Claude executed (Codex sandbox has no npm/wrangler network). Next.js 16.2.6 + OpenNext 1.19.11 + D1 (id 23866d8c-...) + Drizzle 0.45.2 + Tailwind v4.3.0. `/api/health` returns `{ok:true, result:2}`. `npm run build` and `opennextjs-cloudflare build` both green. 672 packages, all with verified registry signatures. Spec deviation: dev script is `next dev` (OpenNext-recommended) not `wrangler dev` — `wrangler dev` is now `npm run preview` against the built worker. |
-| M2 — Server actions + tests | 📋 | Briefed above. Ready for Codex dispatch (this one IS Codex-friendly — pure code transforms, no install/network needed). |
+| M1 — Skeleton + D1 + healthcheck | ✅ | Claude executed (Codex sandbox has no npm/wrangler network). Next.js 16.2.6 + OpenNext 1.19.11 + D1 (id 23866d8c-...) + Drizzle 0.45.2 + Tailwind v4.3.0. `/api/health` returns `{ok:true, result:2}`. 672 packages, all with verified registry signatures. Spec deviation: dev script is `next dev` (OpenNext-recommended), `wrangler dev` is now `npm run preview` against the built worker. |
+| M2 — Server actions + tests | ✅ | Codex (GPT-5.5 xhigh) built it in 7 commits. 19 vitest tests pass, 94.4% stmt / 94.24% line coverage, timing-safe compare verified (lib/auth.ts:93), integer cents enforced, typecheck clean. Pure-impl/thin-wrapper pattern. Claude added 1 review-fix commit covering empty-string preprocess branches. Pushed through `c631026`. |
+| M3 — UI shell + create flow | 📋 | Briefed above. Needs Claude pre-stage for `npx shadcn init` + `npx shadcn add` (network), then Codex builds the React forms/components. |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
 | M4 | ⏳ | |
