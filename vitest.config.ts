@@ -12,7 +12,7 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      reporter: ["text"],
+      reporter: [["text", { skipFull: false }]],
       include: ["lib/**/*.ts", "app/actions/**/*.ts"],
       exclude: ["tests/**"],
     },
