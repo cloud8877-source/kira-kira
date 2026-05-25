@@ -42,63 +42,80 @@ The Mini Shai-Hulud npm/PyPI worm is actively propagating (May 2026), compromisi
 
 ## Current milestone
 
-**M1 — Project skeleton + D1 + Drizzle + healthcheck**
+**M2 — Server actions + Zod validation + unit tests**
 
-Goal: An empty Next.js 16 app boots under `wrangler dev` with a live D1 binding, and a `GET /api/health` route returns `{"ok":true,"result":2}` by running `SELECT 1+1` against D1.
+Goal: All four server actions (`createBill`, `markPaid`, `confirmPayment`, `rejectPayment`) implemented with Zod-validated boundaries, timing-safe admin token verification, and ≥ 80 % unit test coverage on `lib/` and `actions/`. Headless — no UI work yet.
 
 ## Definition of done for the current milestone
 
 **Acceptance criteria (all must pass):**
-1. `npm run dev` (which wraps `wrangler dev`) starts without error and serves on `localhost:8787`
-2. `curl -fsS localhost:8787/api/health` returns `{"ok":true,"result":2}`
-3. `drizzle-kit generate` produces a migration SQL file under `drizzle/`
-4. `wrangler d1 execute kira-kira-db --local --file=drizzle/0000_*.sql` succeeds
-5. `package-lock.json` is committed; `package.json` has exact-pinned versions (no `^`/`~`)
-6. `npm audit signatures` passes (no missing/invalid signatures)
-7. Repository builds cleanly: `npm run build` (OpenNext build) succeeds
+1. `vitest --run` exits 0 with coverage report
+2. Happy-path covered: create bill → mark participant paid → organizer confirms → status flows `unpaid → pending → paid`
+3. Invalid inputs rejected at the action boundary with clear Zod errors (total ≤ 0, > 50 participants, name > 64 chars, malformed phone)
+4. Wrong admin token returns the 404-equivalent (server action throws / returns error that the future page layer will turn into 404)
+5. Token comparison uses `crypto.subtle.timingSafeEqual` — grep for `===` against any secret-shaped variable should return zero hits
+6. Money is integer cents everywhere: `lib/money.ts` is the only place that converts. Grep for `\.toFixed\(2\)|/\s*100|\* 100` outside `lib/money.ts` → zero hits
+7. Coverage ≥ 80 % on `lib/**` and `app/actions/**` (run `vitest --run --coverage`)
+8. `npm run typecheck` clean
 
-**Verification command:**
-```bash
-npm run dev &
-sleep 5
-curl -fsS localhost:8787/api/health | grep -q '"ok":true' && echo "M1 PASS" || echo "M1 FAIL"
-kill %1
+**Architectural pattern (mandatory):**
+
+Server actions are thin wrappers around pure-function "impl" modules. Pure impls take a Drizzle DB as a parameter so they're trivially testable without Cloudflare runtime.
+
+```ts
+// lib/bills/create.ts — pure, testable
+export async function createBillImpl(db: Db, input: CreateBillInput): Promise<{ id: string; adminSecret: string }> { ... }
+
+// app/actions/bills.ts — thin server-action wrapper
+"use server";
+export async function createBill(input: CreateBillInput) {
+  const parsed = createBillSchema.parse(input);
+  return createBillImpl(getDb(), parsed);
+}
 ```
 
-**Install protocol (mandatory — see Supply chain hygiene section):**
-```bash
-# First install only (no lockfile yet):
-npm install --ignore-scripts --package-lock-only   # generate lockfile only
-# Inspect package-lock.json for the EXACT versions resolved
-# Cross-check resolved package URLs/integrities against current Shai-Hulud IOC lists
-npm ci --ignore-scripts                             # actual install, no postinstall
-npm audit signatures                                # verify provenance
-# Only then run any required postinstall manually after review
-```
+Tests target the `*Impl` functions with a fresh in-memory libsql DB seeded from `drizzle/0000_init.sql`.
+
+**Test setup:**
+- `vitest.config.ts` with `globals: true`, coverage via `@vitest/coverage-v8`
+- Test helper `tests/_helpers/db.ts` exports `makeTestDb()` which creates a fresh `:memory:` libsql client, applies the migration SQL, and returns a Drizzle instance
+- Each test gets its own DB (no shared state)
 
 ## Files you may create or modify
 
 ```
-package.json                     # exact-pinned versions only
-package-lock.json                # committed
-next.config.ts                   # withOpenNext() wrapped
-wrangler.jsonc                   # name, compatibility_date, d1_databases binding "DB", assets binding
-drizzle.config.ts                # dialect: sqlite, driver: d1-http (or local equivalent)
-tsconfig.json
-.dev.vars.example                # if any local-only env needed
-db/schema.ts                     # minimal schema for healthcheck — can be empty exports
-db/index.ts                      # getDb() with getCloudflareContext, React cache
-app/layout.tsx                   # bare html/body, Inter font, light theme stub
-app/page.tsx                     # placeholder "Kira-Kira coming soon"
-app/api/health/route.ts          # returns {ok, result} from SELECT 1+1
-app/globals.css                  # Tailwind directives only at M1
-tailwind.config.ts
-postcss.config.mjs
-.env.example
-README.md                        # add "npm run dev" / "npm run deploy" sections
+lib/auth.ts                      # generateAdminSecret(), hashSecret(), verifySecret() — timing-safe
+lib/money.ts                     # toCents(rm), toRm(cents), formatRm(cents)
+lib/validation.ts                # Zod schemas: createBillSchema, markPaidSchema, confirmPaymentSchema, rejectPaymentSchema
+lib/bills/create.ts              # createBillImpl(db, input)
+lib/bills/read.ts                # getBillPublic(db, id), getBillAdmin(db, id, secret)
+lib/payments/mark.ts             # markPaidImpl(db, billId, participantId, note?)
+lib/payments/confirm.ts          # confirmPaymentImpl(db, billId, participantId, secret)
+lib/payments/reject.ts           # rejectPaymentImpl(db, billId, participantId, secret)
+app/actions/bills.ts             # "use server" wrappers
+app/actions/payments.ts          # "use server" wrappers
+tests/_helpers/db.ts             # makeTestDb() with in-memory libsql + migration
+tests/auth.test.ts
+tests/money.test.ts
+tests/validation.test.ts
+tests/bills.test.ts
+tests/payments.test.ts
+vitest.config.ts
 ```
 
-Do NOT touch: anything under `app/b/`, `app/created/`, `app/actions/`, `components/`, `lib/`, `tests/`, `scripts/` — those belong to later milestones.
+**Approved new dependencies for M2** (Claude pre-installs these BEFORE Codex starts):
+- `@libsql/client` — in-memory SQLite for tests (Drizzle d1 driver works with the same SQL dialect)
+- `@vitest/coverage-v8` — coverage reporter
+
+Anything else outside this list = STOP-and-flag.
+
+**Do NOT touch in M2:**
+- `app/page.tsx` (M3)
+- `app/b/`, `app/created/` (M3, M4, M5)
+- `components/` (M3+)
+- `next.config.ts`, `wrangler.jsonc`, `drizzle.config.ts`, `open-next.config.ts` (M1 settled these)
+- `db/schema.ts` (final at M1)
+- Database migrations (no schema changes in M2)
 
 ## What was built in previous milestones
 
@@ -106,8 +123,9 @@ Do NOT touch: anything under `app/b/`, `app/created/`, `app/actions/`, `componen
 
 | Milestone | Status | Notes |
 |---|---|---|
-| M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to https://github.com/cloud8877-source/kira-kira (public). HANDOFF + design spec committed. |
-| M1 | 📋 | Briefed above. Ready for Codex dispatch. |
+| M0 — Repo bootstrap | ✅ | Repo at `~/git/gx/kira-kira/`, pushed to https://github.com/cloud8877-source/kira-kira (public). |
+| M1 — Skeleton + D1 + healthcheck | ✅ | Claude executed (Codex sandbox has no npm/wrangler network). Next.js 16.2.6 + OpenNext 1.19.11 + D1 (id 23866d8c-...) + Drizzle 0.45.2 + Tailwind v4.3.0. `/api/health` returns `{ok:true, result:2}`. `npm run build` and `opennextjs-cloudflare build` both green. 672 packages, all with verified registry signatures. Spec deviation: dev script is `next dev` (OpenNext-recommended) not `wrangler dev` — `wrangler dev` is now `npm run preview` against the built worker. |
+| M2 — Server actions + tests | 📋 | Briefed above. Ready for Codex dispatch (this one IS Codex-friendly — pure code transforms, no install/network needed). |
 | M2 | ⏳ | |
 | M3 | ⏳ | |
 | M4 | ⏳ | |
