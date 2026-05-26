@@ -4,15 +4,23 @@ import { Camera, Loader2 } from "lucide-react";
 import { useRef, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { extractReceipt } from "@/app/actions/receipt";
+import { extractReceipt, uploadReceipt } from "@/app/actions/receipt";
 import type { ParsedReceipt } from "@/lib/receipt/prompts";
 
+export type SnapResult = {
+  ocr: ParsedReceipt | null;
+  receiptKey: string | null;
+  receiptMime: string | null;
+  receiptUploadedAt: number | null;
+  localPreviewUrl: string | null;
+};
+
 type Props = {
-  onExtract: (parsed: ParsedReceipt) => void;
+  onSnap: (result: SnapResult) => void;
   disabled?: boolean;
 };
 
-export function SnapReceiptButton({ onExtract, disabled }: Props) {
+export function SnapReceiptButton({ onSnap, disabled }: Props) {
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,26 +33,61 @@ export function SnapReceiptButton({ onExtract, disabled }: Props) {
     event.target.value = "";
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append("image", file);
+    // Local preview is instant — created from the picked File object
+    // so the user sees the thumbnail before the server roundtrips.
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    const ocrFormData = new FormData();
+    ocrFormData.append("image", file);
+    const uploadFormData = new FormData();
+    uploadFormData.append("image", file);
 
     startTransition(async () => {
-      try {
-        const result = await extractReceipt(formData);
-        if ("error" in result) {
-          toast.error(result.error);
-          return;
-        }
-        const hasFields = result.restaurantName || result.totalCents != null;
-        if (!hasFields || result.confidence === "low") {
-          toast.error("Couldn't read the receipt — please enter manually.");
-          return;
-        }
-        onExtract(result);
-        toast.success("Receipt read — review and tap Create bill.");
-      } catch {
-        toast.error("Couldn't read the receipt — please enter manually.");
+      // Run OCR and R2 upload in parallel — slower of the two gates the UX.
+      // Each may fail independently; partial success still useful.
+      const [ocrResult, uploadResult] = await Promise.allSettled([
+        extractReceipt(ocrFormData),
+        uploadReceipt(uploadFormData),
+      ]);
+
+      const ocrOk =
+        ocrResult.status === "fulfilled" && !("error" in ocrResult.value)
+          ? ocrResult.value
+          : null;
+      const uploadOk =
+        uploadResult.status === "fulfilled" && !("error" in uploadResult.value)
+          ? uploadResult.value
+          : null;
+
+      // OCR failure messaging
+      if (ocrResult.status === "fulfilled" && "error" in ocrResult.value) {
+        toast.error(ocrResult.value.error);
       }
+      // Upload failure messaging
+      if (uploadResult.status === "fulfilled" && "error" in uploadResult.value) {
+        toast.error(uploadResult.value.error);
+      }
+
+      const hasReadableFields =
+        ocrOk && (ocrOk.restaurantName || ocrOk.totalCents != null) && ocrOk.confidence !== "low";
+
+      if (uploadOk && hasReadableFields) {
+        toast.success("Receipt read and attached.");
+      } else if (uploadOk) {
+        toast.success("Receipt attached — fill in the fields manually.");
+      } else if (hasReadableFields) {
+        toast.success("Receipt read.");
+      } else if (!ocrResult || !uploadResult) {
+        toast.error("Couldn't process the receipt — please enter manually.");
+      }
+
+      onSnap({
+        ocr: ocrOk,
+        receiptKey: uploadOk?.receiptKey ?? null,
+        receiptMime: uploadOk?.receiptMime ?? null,
+        receiptUploadedAt: uploadOk?.receiptUploadedAt ?? null,
+        localPreviewUrl,
+      });
     });
   }
 

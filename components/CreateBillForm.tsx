@@ -9,10 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SnapReceiptButton } from "@/components/SnapReceiptButton";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { SnapReceiptButton, type SnapResult } from "@/components/SnapReceiptButton";
 import { toCents, toRm } from "@/lib/money";
 import { createBillSchema, type CreateBillInput } from "@/lib/validation";
-import type { ParsedReceipt } from "@/lib/receipt/prompts";
 import { cn } from "@/lib/utils";
 
 type ParticipantRow = {
@@ -37,6 +37,10 @@ type FormState = {
   dueDate: string;
   description: string;
   participants: ParticipantRow[];
+  receiptKey: string | null;
+  receiptMime: string | null;
+  receiptUploadedAt: number | null;
+  receiptPreviewUrl: string | null;
 };
 
 const MAX_PARTICIPANTS = 50;
@@ -80,6 +84,9 @@ function validateForm(state: FormState): { input: CreateBillInput | null; errors
       name: participant.name,
       phone: participant.phone,
     })),
+    receiptKey: state.receiptKey ?? undefined,
+    receiptMime: state.receiptMime ?? undefined,
+    receiptUploadedAt: state.receiptUploadedAt ?? undefined,
   };
 
   const parsed = createBillSchema.safeParse(candidate);
@@ -147,6 +154,10 @@ export function CreateBillForm() {
     dueDate: "",
     description: "",
     participants: INITIAL_PARTICIPANTS,
+    receiptKey: null,
+    receiptMime: null,
+    receiptUploadedAt: null,
+    receiptPreviewUrl: null,
   });
 
   const validation = useMemo(() => validateForm(state), [state]);
@@ -159,25 +170,35 @@ export function CreateBillForm() {
     return showAllErrors || touched[field];
   }
 
-  function updateField(field: keyof Omit<FormState, "participants">, value: string) {
+  function updateField(
+    field: "title" | "totalRm" | "dueDate" | "description",
+    value: string,
+  ) {
     setServerError(null);
     setState((current) => ({ ...current, [field]: value }));
   }
 
-  function fillFromOcr(parsed: ParsedReceipt) {
+  function handleSnap(result: SnapResult) {
     setServerError(null);
     setState((current) => {
-      const next = { ...current };
-      if (parsed.restaurantName && !current.title.trim()) {
-        next.title = parsed.restaurantName;
+      const next: FormState = {
+        ...current,
+        receiptKey: result.receiptKey,
+        receiptMime: result.receiptMime,
+        receiptUploadedAt: result.receiptUploadedAt,
+        receiptPreviewUrl: result.localPreviewUrl ?? current.receiptPreviewUrl,
+      };
+      const ocr = result.ocr;
+      if (ocr?.restaurantName && !current.title.trim()) {
+        next.title = ocr.restaurantName;
       }
-      if (parsed.totalCents != null && !current.totalRm.trim()) {
-        next.totalRm = toRm(parsed.totalCents);
+      if (ocr?.totalCents != null && !current.totalRm.trim()) {
+        next.totalRm = toRm(ocr.totalCents);
       }
       return next;
     });
-    if (parsed.restaurantName) touch("title");
-    if (parsed.totalCents != null) touch("totalRm");
+    if (result.ocr?.restaurantName) touch("title");
+    if (result.ocr?.totalCents != null) touch("totalRm");
   }
 
   function updateParticipant(key: string, field: "name" | "phone", value: string) {
@@ -259,7 +280,14 @@ export function CreateBillForm() {
       </CardHeader>
       <CardContent>
         <form className="space-y-5" noValidate onSubmit={handleSubmit}>
-          <SnapReceiptButton onExtract={fillFromOcr} disabled={isPending} />
+          <SnapReceiptButton onSnap={handleSnap} disabled={isPending} />
+          {state.receiptPreviewUrl ? (
+            <ReceiptPreview
+              src={state.receiptPreviewUrl}
+              uploadedAt={state.receiptUploadedAt}
+              label={state.receiptKey ? "Receipt attached" : "Receipt preview (not yet attached)"}
+            />
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="bill-title">Bill title</Label>

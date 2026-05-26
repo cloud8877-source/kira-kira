@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { DashboardClient } from "@/components/DashboardClient";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { getDb } from "@/db";
 import { AdminUnauthorizedError } from "@/lib/auth";
 import { getBillAdmin } from "@/lib/bills/read";
@@ -32,6 +33,15 @@ export default async function AdminBillPage({ params, searchParams }: AdminBillP
     return (
       <main className="min-h-screen px-4 py-6 sm:py-10">
         <DashboardClient adminSecret={adminSecret} billId={id} initialBill={bill} />
+        {bill.receiptKey ? (
+          <section className="mx-auto mt-6 w-full max-w-md sm:max-w-lg">
+            <ReceiptPreview
+              src={`/api/receipts/${id}`}
+              uploadedAt={bill.receiptUploadedAt}
+              label="Original receipt"
+            />
+          </section>
+        ) : null}
       </main>
     );
   } catch (error) {

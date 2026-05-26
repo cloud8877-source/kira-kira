@@ -39,11 +39,13 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 - 🎉 Confetti when fully settled
 - 🎨 Custom OG share card so WhatsApp previews look beautiful
 
-### Receipt OCR (bonus)
+### Receipt OCR + preview (bonus)
 
-Tap **Snap receipt** at the top of the create-bill form to capture or upload a photo of a restaurant receipt. The image goes through `@cf/meta/llama-3.2-11b-vision-instruct` on Cloudflare Workers AI, returns a structured `{ restaurantName, totalCents }`, and autofills the form non-destructively (your typed values aren't overwritten). Falls back gracefully if the model returns low confidence — you can always type values manually.
+Tap **Snap receipt** at the top of the create-bill form to capture or upload a photo of a restaurant receipt. The image is stored to Cloudflare R2 *and* parsed in parallel through Workers AI (`@cf/mistralai/mistral-small-3.1-24b-instruct` primary, `@cf/meta/llama-3.2-11b-vision-instruct` fallback). The OCR result autofills the title + total non-destructively; the photo itself shows as a thumbnail and is included on both the public bill page (`/b/[id]`) and the organizer dashboard for everyone in the WhatsApp group to verify.
 
-Free Workers AI tier allows ~10,000 neurons/day; a vision pass typically costs 500–2,000 neurons.
+**Auto-delete: receipts vanish 7 days after upload** via a Cloudflare R2 bucket lifecycle rule (prefix `receipts/`). Pages that load an expired image gracefully show a "Receipt expired" placeholder instead of a broken-image icon.
+
+Free Workers AI tier allows ~10,000 neurons/day; a vision pass typically costs 500–2,000 neurons. R2 free tier (10 GB storage, zero egress) covers any reasonable bounty/demo traffic.
 
 ## Bounty requirements coverage
 

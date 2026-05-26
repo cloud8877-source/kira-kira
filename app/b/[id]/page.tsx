@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BillReceipt } from "@/components/BillReceipt";
 import { ParticipantPicker } from "@/components/ParticipantPicker";
 import { PrintInAnimation } from "@/components/PrintInAnimation";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { getDb } from "@/db";
 import { getBillPublic } from "@/lib/bills/read";
 import { formatRm } from "@/lib/money";
@@ -48,6 +49,14 @@ export default async function PublicBillPage({ params }: PublicBillPageProps) {
         <PrintInAnimation>
           <BillReceipt bill={bill} />
         </PrintInAnimation>
+
+        {bill.receiptKey ? (
+          <ReceiptPreview
+            src={`/api/receipts/${id}`}
+            uploadedAt={bill.receiptUploadedAt}
+            label="Original receipt from the organizer"
+          />
+        ) : null}
 
         <ParticipantPicker billId={id} participants={bill.participants} />
       </section>

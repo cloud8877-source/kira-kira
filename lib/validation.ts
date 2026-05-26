@@ -44,12 +44,38 @@ const participantSchema = z.object({
 const billIdSchema = z.string().trim().min(1);
 const participantIdSchema = z.string().trim().min(1);
 
+const optionalReceiptKey = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^receipts\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpg|png|webp|heic|heif|bin)$/u)
+    .optional(),
+);
+
+const optionalMime = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^image\/(jpeg|png|webp|heic|heif)$/u)
+    .optional(),
+);
+
+const optionalEpochSeconds = z.preprocess(
+  (value) => (value === null || value === undefined || value === "" ? undefined : value),
+  z.coerce.number().int().positive().optional(),
+);
+
 export const createBillSchema = z.object({
   title: z.string().trim().min(1).max(120),
   totalCents: z.number().int().positive(),
   dueDate: optionalDate,
   description: optionalText(500),
   participants: z.array(participantSchema).min(1).max(50),
+  receiptKey: optionalReceiptKey,
+  receiptMime: optionalMime,
+  receiptUploadedAt: optionalEpochSeconds,
 });
 
 export const markPaidSchema = z.object({
