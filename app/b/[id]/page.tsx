@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BillReceipt } from "@/components/BillReceipt";
 import { ParticipantPicker } from "@/components/ParticipantPicker";
+import { PaymentMethodCard } from "@/components/PaymentMethodCard";
 import { PrintInAnimation } from "@/components/PrintInAnimation";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { getDb } from "@/db";
@@ -49,6 +50,13 @@ export default async function PublicBillPage({ params }: PublicBillPageProps) {
         <PrintInAnimation>
           <BillReceipt bill={bill} />
         </PrintInAnimation>
+
+        {bill.paymentQrKey || bill.paymentInstructions ? (
+          <PaymentMethodCard
+            qrSrc={bill.paymentQrKey ? `/api/payments/${id}/qr` : null}
+            instructions={bill.paymentInstructions}
+          />
+        ) : null}
 
         {bill.receiptKey ? (
           <ReceiptPreview
