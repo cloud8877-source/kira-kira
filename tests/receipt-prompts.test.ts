@@ -110,7 +110,7 @@ describe("extractReceiptImpl", () => {
           '{"restaurantName":"Test Restaurant","totalCents":4500,"currency":"MYR","confidence":"high"}',
       }),
     };
-    const result = await extractReceiptImpl(stubAi, new Uint8Array([0xff, 0xd8]));
+    const result = await extractReceiptImpl(stubAi, new Uint8Array([0xff, 0xd8]), "image/jpeg");
     expect(result).toEqual({
       restaurantName: "Test Restaurant",
       totalCents: 4500,
@@ -125,18 +125,36 @@ describe("extractReceiptImpl", () => {
         throw new Error("AI unavailable");
       },
     };
-    const result = await extractReceiptImpl(stubAi, new Uint8Array());
+    const result = await extractReceiptImpl(stubAi, new Uint8Array(), "image/png");
     expect(result.confidence).toBe("low");
     expect(result.totalCents).toBeNull();
     expect(result.restaurantName).toBeNull();
   });
 
-  it("returns FALLBACK when AI returns plain string", async () => {
+  it("accepts plain-string AI response (some models return a bare string)", async () => {
     const stubAi = {
       run: async () =>
         '{"restaurantName":"Plain Cafe","totalCents":300,"currency":"USD","confidence":"medium"}',
     };
-    const result = await extractReceiptImpl(stubAi, new Uint8Array());
+    const result = await extractReceiptImpl(stubAi, new Uint8Array(), "image/webp");
     expect(result).toMatchObject({ restaurantName: "Plain Cafe", totalCents: 300, currency: "USD" });
+  });
+
+  it("calls the AI with messages array and base64 data URI", async () => {
+    let captured: Record<string, unknown> | null = null;
+    const stubAi = {
+      run: async (_model: string, input: Record<string, unknown>) => {
+        captured = input;
+        return {
+          response:
+            '{"restaurantName":"X","totalCents":100,"currency":"MYR","confidence":"high"}',
+        };
+      },
+    };
+    await extractReceiptImpl(stubAi, new Uint8Array([0xff, 0xd8]), "image/jpeg");
+    const input = captured as Record<string, unknown> | null;
+    expect(Array.isArray(input?.messages)).toBe(true);
+    expect(String(input?.image ?? "")).toMatch(/^data:image\/jpeg;base64,/);
+    expect(input).not.toHaveProperty("prompt");
   });
 });

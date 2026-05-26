@@ -25,5 +25,5 @@ export async function extractReceipt(formData: FormData): Promise<ExtractReceipt
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { env } = getCloudflareContext();
-  return extractReceiptImpl(env.AI, bytes);
+  return extractReceiptImpl(env.AI, bytes, file.type);
 }
