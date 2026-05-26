@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PaymentQrButton, type PaymentQrSnap } from "@/components/PaymentQrButton";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { SnapReceiptButton, type SnapResult } from "@/components/SnapReceiptButton";
+import { deletePaymentQr } from "@/app/actions/payment-method";
 import { toCents, toRm } from "@/lib/money";
 import { createBillSchema, type CreateBillInput } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,11 @@ type FormState = {
   receiptMime: string | null;
   receiptUploadedAt: number | null;
   receiptPreviewUrl: string | null;
+  paymentQrKey: string | null;
+  paymentQrMime: string | null;
+  paymentQrUploadedAt: number | null;
+  paymentQrPreviewUrl: string | null;
+  paymentInstructions: string;
 };
 
 const MAX_PARTICIPANTS = 50;
@@ -160,6 +167,11 @@ export function CreateBillForm() {
     receiptMime: null,
     receiptUploadedAt: null,
     receiptPreviewUrl: null,
+    paymentQrKey: null,
+    paymentQrMime: null,
+    paymentQrUploadedAt: null,
+    paymentQrPreviewUrl: null,
+    paymentInstructions: "",
   });
 
   const validation = useMemo(() => validateForm(state), [state]);
@@ -181,6 +193,54 @@ export function CreateBillForm() {
   }
 
   const [isDeletingReceipt, setIsDeletingReceipt] = useState(false);
+  const [isDeletingPaymentQr, setIsDeletingPaymentQr] = useState(false);
+
+  function handlePaymentQrUploaded(snap: PaymentQrSnap) {
+    setServerError(null);
+    setState((current) => {
+      if (current.paymentQrPreviewUrl) {
+        try { URL.revokeObjectURL(current.paymentQrPreviewUrl); } catch { /* ignore */ }
+      }
+      return {
+        ...current,
+        paymentQrKey: snap.paymentQrKey,
+        paymentQrMime: snap.paymentQrMime,
+        paymentQrUploadedAt: snap.paymentQrUploadedAt,
+        paymentQrPreviewUrl: snap.localPreviewUrl,
+      };
+    });
+  }
+
+  async function handleRemovePaymentQr() {
+    const key = state.paymentQrKey;
+    const localUrl = state.paymentQrPreviewUrl;
+    setState((current) => ({
+      ...current,
+      paymentQrKey: null,
+      paymentQrMime: null,
+      paymentQrUploadedAt: null,
+      paymentQrPreviewUrl: null,
+    }));
+    if (localUrl) {
+      try { URL.revokeObjectURL(localUrl); } catch { /* ignore */ }
+    }
+    if (!key) return;
+    setIsDeletingPaymentQr(true);
+    try {
+      const fd = new FormData();
+      fd.append("key", key);
+      await deletePaymentQr(fd);
+    } catch {
+      // ignore — R2 lifecycle backstops cleanup
+    } finally {
+      setIsDeletingPaymentQr(false);
+    }
+  }
+
+  function updatePaymentInstructions(value: string) {
+    setServerError(null);
+    setState((current) => ({ ...current, paymentInstructions: value }));
+  }
 
   function clearReceiptState() {
     setState((current) => {
@@ -514,6 +574,37 @@ export function CreateBillForm() {
             <FieldError id="participants-error">
               {showAllErrors ? validation.errors.participants : undefined}
             </FieldError>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-dashed border-ink/15 bg-paper/60 p-3">
+            <div className="space-y-1">
+              <Label>Payment method (optional)</Label>
+              <p className="text-xs text-ink/55">
+                So your group knows how to pay you. They&apos;ll see this on the bill page.
+              </p>
+            </div>
+            {state.paymentQrPreviewUrl ? (
+              <ReceiptPreview
+                src={state.paymentQrPreviewUrl}
+                uploadedAt={state.paymentQrUploadedAt}
+                label={state.paymentQrKey ? "Payment QR attached" : "Payment QR preview"}
+                onDelete={handleRemovePaymentQr}
+                deleting={isDeletingPaymentQr}
+              />
+            ) : (
+              <PaymentQrButton onUploaded={handlePaymentQrUploaded} disabled={isPending} />
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="payment-instructions">Bank info or notes</Label>
+              <Textarea
+                id="payment-instructions"
+                className="min-h-20 resize-none bg-paper text-ink placeholder:text-ink/45"
+                maxLength={500}
+                placeholder="e.g. Maybank 1234567890 · Aisyah binti Ahmad"
+                value={state.paymentInstructions}
+                onChange={(event) => updatePaymentInstructions(event.target.value)}
+              />
+            </div>
           </div>
 
           {serverError ? (

@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { markPaid } from "@/app/actions/payments";
+import { deleteTransferProof } from "@/app/actions/transfer";
+import { PaymentMethodCard } from "@/components/PaymentMethodCard";
 import { PendingStamp } from "@/components/PendingStamp";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { TransferProofButton, type TransferProofSnap } from "@/components/TransferProofButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,18 +18,28 @@ type MarkPaidFormProps = {
   billId: string;
   participantId: string;
   initialStatus: Participant["status"];
+  paymentQrSrc?: string | null;
+  paymentInstructions?: string | null;
 };
 
 function billPath(billId: string) {
   return `/b/${encodeURIComponent(billId)}`;
 }
 
-export function MarkPaidForm({ billId, participantId, initialStatus }: MarkPaidFormProps) {
+export function MarkPaidForm({
+  billId,
+  participantId,
+  initialStatus,
+  paymentQrSrc,
+  paymentInstructions,
+}: MarkPaidFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isDeletingProof, setIsDeletingProof] = useState(false);
   const [note, setNote] = useState("");
   const [optimisticStatus, setOptimisticStatus] = useState<Participant["status"]>(initialStatus);
   const [error, setError] = useState<string | null>(null);
+  const [proof, setProof] = useState<TransferProofSnap | null>(null);
   const isWaiting = optimisticStatus === "pending";
   const isPaid = optimisticStatus === "paid";
   const isLocked = optimisticStatus !== "unpaid";
@@ -43,6 +57,9 @@ export function MarkPaidForm({ billId, participantId, initialStatus }: MarkPaidF
           billId,
           participantId,
           note,
+          transferProofKey: proof?.transferProofKey,
+          transferProofMime: proof?.transferProofMime,
+          transferProofUploadedAt: proof?.transferProofUploadedAt,
         });
 
         if (!participant) {
@@ -62,6 +79,26 @@ export function MarkPaidForm({ billId, participantId, initialStatus }: MarkPaidF
     });
   }
 
+  async function clearProof() {
+    const currentKey = proof?.transferProofKey;
+    const localUrl = proof?.localPreviewUrl;
+    setProof(null);
+    if (localUrl) {
+      try { URL.revokeObjectURL(localUrl); } catch { /* ignore */ }
+    }
+    if (!currentKey) return;
+    setIsDeletingProof(true);
+    try {
+      const fd = new FormData();
+      fd.append("key", currentKey);
+      await deleteTransferProof(fd);
+    } catch {
+      // R2 lifecycle still expires after 7d as backstop
+    } finally {
+      setIsDeletingProof(false);
+    }
+  }
+
   function clearSavedParticipant() {
     try {
       window.localStorage.removeItem(`kira-kira:${billId}`);
@@ -77,7 +114,31 @@ export function MarkPaidForm({ billId, participantId, initialStatus }: MarkPaidF
       {isWaiting ? <PendingStamp /> : null}
 
       <CardContent className="space-y-4 pt-6">
+        <PaymentMethodCard qrSrc={paymentQrSrc} instructions={paymentInstructions} />
+
         <form className="space-y-4" noValidate onSubmit={handleSubmit}>
+          {!isLocked ? (
+            <div className="space-y-2">
+              <Label>Transfer screenshot (optional but encouraged)</Label>
+              {proof ? (
+                <ReceiptPreview
+                  src={proof.localPreviewUrl}
+                  uploadedAt={proof.transferProofUploadedAt}
+                  label="Transfer screenshot attached"
+                  onDelete={clearProof}
+                  deleting={isDeletingProof}
+                />
+              ) : (
+                <TransferProofButton
+                  billId={billId}
+                  participantId={participantId}
+                  onUploaded={setProof}
+                  disabled={isPending}
+                />
+              )}
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <Label htmlFor="payment-note">Payment reference</Label>
             <Textarea

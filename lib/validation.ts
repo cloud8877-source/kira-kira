@@ -53,6 +53,24 @@ const optionalReceiptKey = z.preprocess(
     .optional(),
 );
 
+const optionalPaymentQrKey = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^payments\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpg|png|webp|heic|heif|bin)$/u)
+    .optional(),
+);
+
+const optionalTransferProofKey = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^transfers\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpg|png|webp|heic|heif|bin)$/u)
+    .optional(),
+);
+
 const optionalMime = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z
@@ -76,13 +94,31 @@ export const createBillSchema = z.object({
   receiptKey: optionalReceiptKey,
   receiptMime: optionalMime,
   receiptUploadedAt: optionalEpochSeconds,
+  paymentQrKey: optionalPaymentQrKey,
+  paymentQrMime: optionalMime,
+  paymentQrUploadedAt: optionalEpochSeconds,
+  paymentInstructions: optionalText(500),
 });
 
 export const markPaidSchema = z.object({
   billId: billIdSchema,
   participantId: participantIdSchema,
   note: optionalText(200),
+  transferProofKey: optionalTransferProofKey,
+  transferProofMime: optionalMime,
+  transferProofUploadedAt: optionalEpochSeconds,
 });
+
+export const settleBillSchema = z.object({
+  billId: billIdSchema,
+  adminSecret: z.string().min(1),
+});
+
+export const scheduleExpirySchema = settleBillSchema.extend({
+  retentionDays: z.number().int().min(1).max(30).default(7),
+});
+
+export const deleteBillSchema = settleBillSchema;
 
 export const confirmPaymentSchema = z.object({
   billId: billIdSchema,
@@ -96,3 +132,6 @@ export type CreateBillInput = z.output<typeof createBillSchema>;
 export type MarkPaidInput = z.output<typeof markPaidSchema>;
 export type ConfirmPaymentInput = z.output<typeof confirmPaymentSchema>;
 export type RejectPaymentInput = z.output<typeof rejectPaymentSchema>;
+export type SettleBillInput = z.output<typeof settleBillSchema>;
+export type ScheduleExpiryInput = z.output<typeof scheduleExpirySchema>;
+export type DeleteBillInput = z.output<typeof deleteBillSchema>;

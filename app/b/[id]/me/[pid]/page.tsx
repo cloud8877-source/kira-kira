@@ -46,6 +46,8 @@ export default async function MemberConfirmPage({ params }: MemberConfirmPagePro
             billId={id}
             initialStatus={participant.status}
             participantId={participant.id}
+            paymentQrSrc={bill.paymentQrKey ? `/api/payments/${id}/qr` : null}
+            paymentInstructions={bill.paymentInstructions}
           />
 
           <noscript>

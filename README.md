@@ -43,7 +43,21 @@ Organizer creates a bill → shares one link in WhatsApp → members tap their n
 
 Tap **Snap receipt** at the top of the create-bill form to capture or upload a photo of a restaurant receipt. The image is stored to Cloudflare R2 *and* parsed in parallel through Workers AI (`@cf/mistralai/mistral-small-3.1-24b-instruct` primary, `@cf/meta/llama-3.2-11b-vision-instruct` fallback). The OCR result autofills the title + total non-destructively; the photo itself shows as a thumbnail and is included on both the public bill page (`/b/[id]`) and the organizer dashboard for everyone in the WhatsApp group to verify.
 
-**Auto-delete: receipts vanish 7 days after upload** via a Cloudflare R2 bucket lifecycle rule (prefix `receipts/`). Pages that load an expired image gracefully show a "Receipt expired" placeholder instead of a broken-image icon.
+### Payment methods + transfer proofs (bonus)
+
+When creating a bill, the organizer can attach a **payment QR code** (TNG / Boost / DuitNow / Maybank QR) and/or type **bank info** (e.g. "Maybank 1234567890 · Aisyah binti Ahmad"). Members see both on the bill page right above the "Mark as paid" form — no more group-chat scrambles for the account number.
+
+When a member marks themselves paid, they can attach the actual **transfer screenshot** alongside the existing payment-reference note. The organizer's dashboard shows the screenshot thumbnail on the Pending row so they can verify before tapping Confirm. **Transfer proofs are admin-only** (sensitive bank info shouldn't leak between members) — the `/api/transfers/[billId]/[pid]` route requires the admin secret.
+
+### Settlement + PDF report + lifecycle delete (bonus)
+
+Once every participant is paid, a green **"Mark bill as settled"** button appears on the dashboard. Tapping it opens a settlement modal with three actions:
+
+1. **Download PDF report** — client-side generation via `jspdf` produces a multi-page PDF with bill metadata, participants table, the receipt image, the payment QR, and every transfer proof. One tap, downloads to the device.
+2. **Delete everything now** — full nuke: bill row + cascade participants + R2 cascade across `receipts/<billId>/`, `payments/<billId>/`, and `transfers/<billId>/`. The bill URL returns 404 after.
+3. **Auto-delete in 7 days** — sets `expires_at`. On the next read after the TTL passes, a lazy hook in `lib/bills/read.ts` runs the same cascade.
+
+**R2 lifecycle rule** (active on `receipts/` + `payments/` + `transfers/` prefixes) hard-expires all images after 7 days regardless of whether the bill is explicitly deleted, so sensitive payment screenshots never linger past the retention window.
 
 Free Workers AI tier allows ~10,000 neurons/day; a vision pass typically costs 500–2,000 neurons. R2 free tier (10 GB storage, zero egress) covers any reasonable bounty/demo traffic.
 

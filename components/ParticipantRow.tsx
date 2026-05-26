@@ -2,12 +2,15 @@
 
 import { Check, X } from "lucide-react";
 import { NudgeButton } from "@/components/NudgeButton";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { Button } from "@/components/ui/button";
 import type { Participant } from "@/db/schema";
 import { formatRm } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type ParticipantRowProps = {
+  billId: string;
+  adminSecret: string;
   billTitle: string;
   dataJustPaid?: boolean;
   isMutating?: boolean;
@@ -30,6 +33,8 @@ const STATUS_CLASSES: Record<Participant["status"], string> = {
 };
 
 export function ParticipantRow({
+  billId,
+  adminSecret,
   billTitle,
   dataJustPaid = false,
   isMutating = false,
@@ -71,6 +76,14 @@ export function ParticipantRow({
           <p className="break-words rounded-md border border-dashed border-teh/25 bg-teh/10 px-3 py-2 text-sm leading-5 text-ink/70">
             {participant.note}
           </p>
+        ) : null}
+
+        {isPendingVerification && participant.transferProofKey ? (
+          <ReceiptPreview
+            src={`/api/transfers/${billId}/${participant.id}?k=${encodeURIComponent(adminSecret)}`}
+            uploadedAt={participant.transferProofUploadedAt}
+            label="Transfer screenshot"
+          />
         ) : null}
 
         {isPendingVerification ? (

@@ -15,7 +15,11 @@ import {
 
 export async function markPaid(input: MarkPaidInput) {
   const parsed = markPaidSchema.parse(input);
-  return markPaidImpl(getDb(), parsed.billId, parsed.participantId, parsed.note);
+  return markPaidImpl(getDb(), parsed.billId, parsed.participantId, parsed.note, {
+    transferProofKey: parsed.transferProofKey ?? null,
+    transferProofMime: parsed.transferProofMime ?? null,
+    transferProofUploadedAt: parsed.transferProofUploadedAt ?? null,
+  });
 }
 
 export async function confirmPayment(input: ConfirmPaymentInput) {

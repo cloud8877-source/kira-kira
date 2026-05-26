@@ -4,6 +4,14 @@ import * as schema from "@/db/schema";
 import { bills, participants, type Bill, type Participant } from "@/db/schema";
 import { AdminUnauthorizedError, verifySecret } from "@/lib/auth";
 
+// Hook injected by lib/bills/settle.ts to cascade-delete a bill when its
+// expires_at has passed. Lazy import to avoid circular deps.
+type CascadeDeleteFn = (db: Db, billId: string) => Promise<void>;
+let cascadeDeleteHook: CascadeDeleteFn | null = null;
+export function registerCascadeDeleteHook(fn: CascadeDeleteFn) {
+  cascadeDeleteHook = fn;
+}
+
 export type Db = BaseSQLiteDatabase<"async", unknown, typeof schema>;
 
 const PERCENT_COMPLETE = 100;
@@ -24,7 +32,34 @@ function progressFor(participantRows: Participant[]): number {
 
 async function getBillRow(db: Db, billId: string): Promise<Bill | null> {
   const rows = await db.select().from(bills).where(eq(bills.id, billId)).limit(1);
-  return rows[0] ?? null;
+  const bill = rows[0] ?? null;
+  if (!bill) return null;
+
+  // Lazy expiry: if this bill's TTL has passed, cascade-delete (best effort)
+  // and report missing. The hook is registered by lib/bills/settle.ts; we
+  // dynamic-import on first miss so the registration runs even if no other
+  // module has touched settle.ts yet this request.
+  if (bill.expiresAt instanceof Date && Date.now() >= bill.expiresAt.getTime()) {
+    if (!cascadeDeleteHook) {
+      try {
+        await import("./settle");
+      } catch {
+        // ignore — fall through to the no-hook path below
+      }
+    }
+    if (cascadeDeleteHook) {
+      try {
+        await cascadeDeleteHook(db, billId);
+      } catch {
+        // ignore — the next read still returns null because the row was past TTL
+      }
+    } else {
+      // No hook available — just drop the row.
+      await db.delete(bills).where(eq(bills.id, billId));
+    }
+    return null;
+  }
+  return bill;
 }
 
 async function getParticipants(db: Db, billId: string): Promise<Participant[]> {

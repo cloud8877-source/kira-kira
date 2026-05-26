@@ -35,6 +35,12 @@ export async function createBillImpl(
     receiptKey: input.receiptKey ?? null,
     receiptMime: input.receiptMime ?? null,
     receiptUploadedAt: input.receiptUploadedAt ? new Date(input.receiptUploadedAt * 1000) : null,
+    paymentQrKey: input.paymentQrKey ?? null,
+    paymentQrMime: input.paymentQrMime ?? null,
+    paymentQrUploadedAt: input.paymentQrUploadedAt
+      ? new Date(input.paymentQrUploadedAt * 1000)
+      : null,
+    paymentInstructions: input.paymentInstructions ?? null,
   });
 
   await db.insert(participants).values(

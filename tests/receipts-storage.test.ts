@@ -9,7 +9,12 @@ import {
 
 function makeStubBucket() {
   const store = new Map<string, { value: unknown; contentType?: string }>();
-  const calls: { put: number; get: number; delete: number } = { put: 0, get: 0, delete: 0 };
+  const calls: { put: number; get: number; delete: number; list: number } = {
+    put: 0,
+    get: 0,
+    delete: 0,
+    list: 0,
+  };
   const bucket: R2BucketLike = {
     async put(key, value, options) {
       calls.put += 1;
@@ -27,9 +32,19 @@ function makeStubBucket() {
       });
       return { body, httpMetadata: { contentType: hit.contentType } };
     },
-    async delete(key) {
+    async delete(keyOrKeys) {
       calls.delete += 1;
-      store.delete(key);
+      const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+      for (const k of keys) store.delete(k);
+    },
+    async list(options) {
+      calls.list += 1;
+      const prefix = options?.prefix ?? "";
+      return {
+        objects: Array.from(store.keys())
+          .filter((k) => k.startsWith(prefix))
+          .map((key) => ({ key })),
+      };
     },
   };
   return { bucket, store, calls };
@@ -47,6 +62,33 @@ describe("buildReceiptKey", () => {
     expect(buildReceiptKey("b", "image/heic")).toMatch(/\.heic$/);
     expect(buildReceiptKey("b", "image/heif")).toMatch(/\.heif$/);
     expect(buildReceiptKey("b", "application/octet-stream")).toMatch(/\.bin$/);
+  });
+});
+
+describe("buildPaymentQrKey / buildTransferProofKey", () => {
+  it("uses payments/ and transfers/ prefixes correctly", async () => {
+    const { buildPaymentQrKey, buildTransferProofKey } = await import("@/lib/receipts/storage");
+    expect(buildPaymentQrKey("bill1", "image/png")).toMatch(
+      /^payments\/bill1\/[A-Za-z0-9_-]{8}\.png$/u,
+    );
+    expect(buildTransferProofKey("bill1", "p1", "image/jpeg")).toMatch(
+      /^transfers\/bill1\/p1\/[A-Za-z0-9_-]{8}\.jpg$/u,
+    );
+  });
+});
+
+describe("deleteAllByPrefix", () => {
+  it("removes every object under the prefix and returns the count", async () => {
+    const { deleteAllByPrefix } = await import("@/lib/receipts/storage");
+    const { bucket, store } = makeStubBucket();
+    await bucket.put("receipts/billX/a.jpg", new Uint8Array());
+    await bucket.put("receipts/billX/b.jpg", new Uint8Array());
+    await bucket.put("payments/billX/qr.png", new Uint8Array());
+    await bucket.put("transfers/billX/p1/z.jpg", new Uint8Array());
+    const removed = await deleteAllByPrefix(bucket, "receipts/billX/");
+    expect(removed).toBe(2);
+    expect(store.has("receipts/billX/a.jpg")).toBe(false);
+    expect(store.has("payments/billX/qr.png")).toBe(true);
   });
 });
 

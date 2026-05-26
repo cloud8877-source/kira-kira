@@ -1,13 +1,17 @@
 "use client";
 
+import { CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
+import { markBillSettled } from "@/app/actions/bills";
 import { confirmPayment, rejectPayment } from "@/app/actions/payments";
 import { ConfettiOnSettled } from "@/components/ConfettiOnSettled";
 import { ParticipantRow } from "@/components/ParticipantRow";
 import { ProgressRing } from "@/components/ProgressRing";
+import { SettlementModal } from "@/components/SettlementModal";
 import { StatusColumn } from "@/components/StatusColumn";
+import { Button } from "@/components/ui/button";
 import type { Participant } from "@/db/schema";
 import type { BillView } from "@/lib/bills/read";
 import { formatRm } from "@/lib/money";
@@ -210,6 +214,8 @@ export function DashboardClient({ adminSecret, billId, initialBill }: DashboardC
   function renderParticipant(participant: Participant) {
     return (
       <ParticipantRow
+        billId={billId}
+        adminSecret={adminSecret}
         billTitle={bill.title}
         dataJustPaid={justPaidIds.has(participant.id)}
         isMutating={isMutating}
@@ -221,6 +227,40 @@ export function DashboardClient({ adminSecret, billId, initialBill }: DashboardC
       />
     );
   }
+
+  const isSettled = Boolean(bill.settledAt);
+  const allPaid = bill.progress === 100 && bill.participants.length > 0;
+  const [settlementOpen, setSettlementOpen] = useState(false);
+  const [isSettling, startSettling] = useTransition();
+
+  // Auto-open the modal once the bill becomes settled (organizer-driven flow)
+  // so they see the PDF / delete / auto-delete options immediately.
+  const lastSettledRef = useRef<string | null>(bill.settledAt ? String(bill.settledAt) : null);
+  useEffect(() => {
+    const current = bill.settledAt ? String(bill.settledAt) : null;
+    if (current && current !== lastSettledRef.current) {
+      setSettlementOpen(true);
+    }
+    lastSettledRef.current = current;
+  }, [bill.settledAt]);
+
+  function handleMarkSettled() {
+    startSettling(async () => {
+      const result = await markBillSettled({ billId, adminSecret });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Bill marked settled!");
+      void mutate();
+      setSettlementOpen(true);
+    });
+  }
+
+  const expiresAt = bill.expiresAt ? new Date(bill.expiresAt) : null;
+  const expiresInDays = expiresAt
+    ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000))
+    : null;
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-8">
@@ -252,7 +292,60 @@ export function DashboardClient({ adminSecret, billId, initialBill }: DashboardC
 
           <ProgressRing paidCount={paidCount} percent={bill.progress} totalCount={totalCount} />
         </div>
+
+        {expiresInDays != null ? (
+          <p className="mt-4 flex items-center gap-1.5 rounded-md border border-dashed border-ink/15 bg-paper/70 px-3 py-2 text-xs font-mono text-ink/70">
+            <Clock className="size-3.5" aria-hidden="true" />
+            Auto-deletes in {expiresInDays} day{expiresInDays === 1 ? "" : "s"}
+          </p>
+        ) : null}
       </header>
+
+      {allPaid && !isSettled ? (
+        <div className="rounded-lg border border-lime/30 bg-lime/10 p-4 text-center space-y-3">
+          <p className="font-display text-lg text-ink">Everyone has paid 🎉</p>
+          <p className="text-sm text-ink/70">
+            Acknowledge settlement to download the report and clean up.
+          </p>
+          <Button
+            type="button"
+            className="min-h-12 gap-2 bg-lime px-6 text-base font-semibold text-paper hover:bg-lime/90"
+            onClick={handleMarkSettled}
+            disabled={isSettling}
+          >
+            {isSettling ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="size-5" aria-hidden="true" />}
+            Mark bill as settled
+          </Button>
+        </div>
+      ) : null}
+
+      {isSettled ? (
+        <div className="rounded-lg border border-lime/30 bg-lime/5 p-4 flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <p className="flex items-center gap-1.5 font-display text-base text-ink">
+              <CheckCircle2 className="size-4 text-lime" aria-hidden="true" /> Bill settled
+            </p>
+            <p className="text-xs text-ink/55">
+              Download the report or remove everything.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-10 border-ink/20 text-ink hover:bg-paper-soft"
+            onClick={() => setSettlementOpen(true)}
+          >
+            Open
+          </Button>
+        </div>
+      ) : null}
+
+      <SettlementModal
+        open={settlementOpen}
+        onClose={() => setSettlementOpen(false)}
+        billId={billId}
+        adminSecret={adminSecret}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatusColumn
