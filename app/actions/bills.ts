@@ -9,16 +9,19 @@ import {
   NotAllPaidError,
   scheduleBillExpiryImpl,
 } from "@/lib/bills/settle";
+import { updateBillPaymentMethodImpl } from "@/lib/bills/update-payment";
 import { AdminUnauthorizedError } from "@/lib/auth";
 import {
   createBillSchema,
   deleteBillSchema,
   scheduleExpirySchema,
   settleBillSchema,
+  updatePaymentMethodSchema,
   type CreateBillInput,
   type DeleteBillInput,
   type ScheduleExpiryInput,
   type SettleBillInput,
+  type UpdatePaymentMethodInput,
 } from "@/lib/validation";
 
 export async function createBill(input: CreateBillInput) {
@@ -65,6 +68,27 @@ export async function scheduleBillExpiry(
     if (err instanceof AdminUnauthorizedError) return { error: "Unauthorized." };
     console.error("[bill] schedule-expiry failed:", err);
     return { error: "Couldn't schedule expiry." };
+  }
+}
+
+export async function updateBillPaymentMethod(
+  input: UpdatePaymentMethodInput,
+): Promise<{ ok: true } | { error: string }> {
+  const parsed = updatePaymentMethodSchema.parse(input);
+  try {
+    await updateBillPaymentMethodImpl(getDb(), parsed.billId, parsed.adminSecret, {
+      paymentQrKey: parsed.paymentQrKey ?? null,
+      paymentQrMime: parsed.paymentQrMime ?? null,
+      paymentQrUploadedAt: parsed.paymentQrUploadedAt
+        ? new Date(parsed.paymentQrUploadedAt * 1000)
+        : null,
+      paymentInstructions: parsed.paymentInstructions ?? null,
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof AdminUnauthorizedError) return { error: "Unauthorized." };
+    console.error("[bill] update-payment-method failed:", err);
+    return { error: "Couldn't update the payment method." };
   }
 }
 

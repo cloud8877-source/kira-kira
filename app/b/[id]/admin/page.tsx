@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { DashboardClient } from "@/components/DashboardClient";
-import { PaymentMethodCard } from "@/components/PaymentMethodCard";
+import { PaymentMethodAdmin } from "@/components/PaymentMethodAdmin";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { getDb } from "@/db";
 import { AdminUnauthorizedError } from "@/lib/auth";
@@ -34,14 +34,16 @@ export default async function AdminBillPage({ params, searchParams }: AdminBillP
     return (
       <main className="min-h-screen px-4 py-6 sm:py-10">
         <DashboardClient adminSecret={adminSecret} billId={id} initialBill={bill} />
-        {bill.paymentQrKey || bill.paymentInstructions ? (
-          <section className="mx-auto mt-6 w-full max-w-md sm:max-w-lg">
-            <PaymentMethodCard
-              qrSrc={bill.paymentQrKey ? `/api/payments/${id}/qr` : null}
-              instructions={bill.paymentInstructions}
-            />
-          </section>
-        ) : null}
+        <section className="mx-auto mt-6 w-full max-w-md sm:max-w-lg">
+          <PaymentMethodAdmin
+            billId={id}
+            adminSecret={adminSecret}
+            initialQrKey={bill.paymentQrKey}
+            initialQrMime={bill.paymentQrMime}
+            initialQrUploadedAt={bill.paymentQrUploadedAt}
+            initialInstructions={bill.paymentInstructions}
+          />
+        </section>
         {bill.receiptKey ? (
           <section className="mx-auto mt-6 w-full max-w-md sm:max-w-lg">
             <ReceiptPreview

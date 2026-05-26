@@ -114,6 +114,15 @@ export const settleBillSchema = z.object({
   adminSecret: z.string().min(1),
 });
 
+export const updatePaymentMethodSchema = z.object({
+  billId: billIdSchema,
+  adminSecret: z.string().min(1),
+  paymentQrKey: optionalPaymentQrKey,
+  paymentQrMime: optionalMime,
+  paymentQrUploadedAt: optionalEpochSeconds,
+  paymentInstructions: optionalText(500),
+});
+
 export const scheduleExpirySchema = settleBillSchema.extend({
   retentionDays: z.number().int().min(1).max(30).default(7),
 });
@@ -133,5 +142,6 @@ export type MarkPaidInput = z.output<typeof markPaidSchema>;
 export type ConfirmPaymentInput = z.output<typeof confirmPaymentSchema>;
 export type RejectPaymentInput = z.output<typeof rejectPaymentSchema>;
 export type SettleBillInput = z.output<typeof settleBillSchema>;
+export type UpdatePaymentMethodInput = z.output<typeof updatePaymentMethodSchema>;
 export type ScheduleExpiryInput = z.output<typeof scheduleExpirySchema>;
 export type DeleteBillInput = z.output<typeof deleteBillSchema>;
