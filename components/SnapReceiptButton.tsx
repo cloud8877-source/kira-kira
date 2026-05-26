@@ -97,7 +97,6 @@ export function SnapReceiptButton({ onSnap, disabled }: Props) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         hidden
         onChange={handlePick}
       />
