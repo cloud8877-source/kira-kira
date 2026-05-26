@@ -11,7 +11,7 @@ export const bills = sqliteTable("bills", {
   adminSecretHash: text("admin_secret_hash").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
+    .$defaultFn(() => new Date()),
   receiptKey: text("receipt_key"),
   receiptMime: text("receipt_mime"),
   receiptUploadedAt: integer("receipt_uploaded_at", { mode: "timestamp" }),
