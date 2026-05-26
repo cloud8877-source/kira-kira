@@ -302,7 +302,7 @@ export function DashboardClient({ adminSecret, billId, initialBill }: DashboardC
       </header>
 
       {allPaid && !isSettled ? (
-        <div className="rounded-lg border border-lime/30 bg-lime/10 p-4 text-center space-y-3">
+        <div className="animate-settle-glow rounded-lg border border-lime/30 bg-lime/10 p-4 text-center space-y-3">
           <p className="font-display text-lg text-ink">Everyone has paid 🎉</p>
           <p className="text-sm text-ink/70">
             Acknowledge settlement to download the report and clean up.

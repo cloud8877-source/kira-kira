@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Participant } from "@/db/schema";
+import { transitionalNavigate } from "@/lib/view-transitions";
 
 type MarkPaidFormProps = {
   billId: string;
@@ -106,7 +107,7 @@ export function MarkPaidForm({
       // localStorage can be unavailable; the route change is still enough.
     }
 
-    router.replace(billPath(billId));
+    transitionalNavigate(router, billPath(billId), "replace");
   }
 
   return (

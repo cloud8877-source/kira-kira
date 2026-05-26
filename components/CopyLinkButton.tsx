@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, KeyRound, LinkIcon } from "lucide-react";
+import { Check, Copy, KeyRound, LinkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,13 @@ function adminSecretFromHash(hash: string) {
 }
 
 export function CopyLinkButton({ url, disabled = false }: CopyLinkButtonProps) {
+  const [justCopied, setJustCopied] = useState(false);
+
   async function copyUrl() {
     await navigator.clipboard.writeText(url);
     toast.success("Copied!");
+    setJustCopied(true);
+    window.setTimeout(() => setJustCopied(false), 1200);
   }
 
   return (
@@ -43,8 +47,16 @@ export function CopyLinkButton({ url, disabled = false }: CopyLinkButtonProps) {
       type="button"
       onClick={copyUrl}
     >
-      <Copy className="size-4" aria-hidden="true" />
-      Copy link
+      {justCopied ? (
+        <Check
+          className="size-4 animate-pop-in text-lime"
+          aria-hidden="true"
+          key="check"
+        />
+      ) : (
+        <Copy className="size-4" aria-hidden="true" key="copy" />
+      )}
+      {justCopied ? "Copied!" : "Copy link"}
     </Button>
   );
 }

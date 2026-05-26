@@ -15,6 +15,7 @@ import { PaymentQrButton, type PaymentQrSnap } from "@/components/PaymentQrButto
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { SnapReceiptButton, type SnapResult } from "@/components/SnapReceiptButton";
 import { deletePaymentQr } from "@/app/actions/payment-method";
+import { transitionalNavigate } from "@/lib/view-transitions";
 import { toCents, toRm } from "@/lib/money";
 import { createBillSchema, type CreateBillInput } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -364,7 +365,11 @@ export function CreateBillForm() {
     startTransition(async () => {
       try {
         const result = await createBill(input);
-        router.replace("/created/" + result.id + "#k=" + encodeURIComponent(result.adminSecret));
+        transitionalNavigate(
+          router,
+          "/created/" + result.id + "#k=" + encodeURIComponent(result.adminSecret),
+          "replace",
+        );
       } catch (error) {
         setServerError(error instanceof Error ? error.message : "Couldn't create the bill. Try again.");
       }

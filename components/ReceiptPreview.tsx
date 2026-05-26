@@ -61,7 +61,7 @@ export function ReceiptPreview({
 
   return (
     <>
-      <div className="relative w-full overflow-hidden rounded-lg border border-ink/15 bg-paper-soft p-2">
+      <div className="animate-pop-in relative w-full overflow-hidden rounded-lg border border-ink/15 bg-paper-soft p-2">
         <button
           type="button"
           onClick={open}

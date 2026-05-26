@@ -6,6 +6,7 @@ import type { Participant } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRm } from "@/lib/money";
+import { transitionalNavigate } from "@/lib/view-transitions";
 
 type PickerParticipant = Pick<Participant, "id" | "name" | "amountCents">;
 
@@ -34,7 +35,7 @@ export function ParticipantPicker({ billId, participants }: ParticipantPickerPro
 
     if (savedParticipantId) {
       startTransition(() => {
-        router.replace(memberPath(billId, savedParticipantId));
+        transitionalNavigate(router, memberPath(billId, savedParticipantId), "replace");
       });
     }
   }, [billId, router, storageKey]);
@@ -47,7 +48,7 @@ export function ParticipantPicker({ billId, participants }: ParticipantPickerPro
     }
 
     startTransition(() => {
-      router.push(memberPath(billId, participantId));
+      transitionalNavigate(router, memberPath(billId, participantId), "push");
     });
   }
 

@@ -136,3 +136,67 @@
 [data-just-paid="true"] {
   animation: just-paid-highlight 1.5s ease-out;
 }
+
+/* ── M10 polish keyframes ─────────────────────────────────────────────── */
+
+@keyframes steam-rise {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.9); }
+  20%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: translate(2px, -28px) scale(1.25); }
+}
+
+.steam-wisp {
+  transform-origin: center;
+  animation: steam-rise 3.6s ease-in-out infinite;
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-pop-in {
+  animation: pop-in 320ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes settle-glow {
+  0%   { box-shadow: 0 0 0 0   rgb(92 138 74 / 0); }
+  35%  { box-shadow: 0 0 0 18px rgb(92 138 74 / 0.18); }
+  100% { box-shadow: 0 0 0 0   rgb(92 138 74 / 0); }
+}
+
+.animate-settle-glow {
+  animation: settle-glow 2.4s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam-wisp,
+  .animate-pop-in,
+  .animate-settle-glow,
+  [data-just-paid="true"] {
+    animation: none !important;
+  }
+}
+
+/* View Transitions */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+::view-transition-old(bill-receipt),
+::view-transition-new(bill-receipt) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(bill-receipt),
+  ::view-transition-new(bill-receipt) {
+    animation: none !important;
+  }
+}

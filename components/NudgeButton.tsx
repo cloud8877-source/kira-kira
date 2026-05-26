@@ -37,7 +37,7 @@ export function NudgeButton({
   if (nudge.wa) {
     return (
       <a className={className} href={nudge.wa} rel="noreferrer" target="_blank">
-        <MessageCircle className="size-4" aria-hidden="true" />
+        <MessageCircle className="size-4 transition-transform group-hover/button:scale-110 group-hover/button:rotate-[-6deg]" aria-hidden="true" />
         Nudge
       </a>
     );
