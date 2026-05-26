@@ -15,6 +15,12 @@ export const bills = sqliteTable("bills", {
   receiptKey: text("receipt_key"),
   receiptMime: text("receipt_mime"),
   receiptUploadedAt: integer("receipt_uploaded_at", { mode: "timestamp" }),
+  paymentQrKey: text("payment_qr_key"),
+  paymentQrMime: text("payment_qr_mime"),
+  paymentQrUploadedAt: integer("payment_qr_uploaded_at", { mode: "timestamp" }),
+  paymentInstructions: text("payment_instructions"),
+  settledAt: integer("settled_at", { mode: "timestamp" }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
 });
 
 export const participants = sqliteTable(
@@ -33,6 +39,9 @@ export const participants = sqliteTable(
     note: text("note"),
     paidAt: integer("paid_at", { mode: "timestamp" }),
     confirmedAt: integer("confirmed_at", { mode: "timestamp" }),
+    transferProofKey: text("transfer_proof_key"),
+    transferProofMime: text("transfer_proof_mime"),
+    transferProofUploadedAt: integer("transfer_proof_uploaded_at", { mode: "timestamp" }),
   },
   (t) => ({
     billIdx: index("participants_bill_idx").on(t.billId),
