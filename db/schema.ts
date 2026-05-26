@@ -12,6 +12,9 @@ export const bills = sqliteTable("bills", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
+  receiptKey: text("receipt_key"),
+  receiptMime: text("receipt_mime"),
+  receiptUploadedAt: integer("receipt_uploaded_at", { mode: "timestamp" }),
 });
 
 export const participants = sqliteTable(

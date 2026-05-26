@@ -140,21 +140,76 @@ describe("extractReceiptImpl", () => {
     expect(result).toMatchObject({ restaurantName: "Plain Cafe", totalCents: 300, currency: "USD" });
   });
 
-  it("calls the AI with messages array and base64 data URI", async () => {
-    let captured: Record<string, unknown> | null = null;
+  it("handles auto-parsed object response (Workers AI JSON-mode)", async () => {
+    // Workers AI sometimes returns response.response as an already-parsed object
     const stubAi = {
-      run: async (_model: string, input: Record<string, unknown>) => {
-        captured = input;
+      run: async () => ({
+        response: {
+          restaurantName: "Auto-Parsed Cafe",
+          totalCents: 1500,
+          currency: "MYR",
+          confidence: "high",
+        },
+        tool_calls: [],
+        usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+      }),
+    };
+    const result = await extractReceiptImpl(stubAi, new Uint8Array(), "image/jpeg");
+    expect(result).toEqual({
+      restaurantName: "Auto-Parsed Cafe",
+      totalCents: 1500,
+      currency: "MYR",
+      confidence: "high",
+    });
+  });
+
+  it("calls Mistral primary with OpenAI multimodal content blocks", async () => {
+    const calls: Array<{ model: string; input: Record<string, unknown> }> = [];
+    const stubAi = {
+      run: async (model: string, input: Record<string, unknown>) => {
+        calls.push({ model, input });
         return {
-          response:
-            '{"restaurantName":"X","totalCents":100,"currency":"MYR","confidence":"high"}',
+          choices: [
+            {
+              message: {
+                content:
+                  '{"restaurantName":"X","totalCents":1500,"currency":"MYR","confidence":"high"}',
+              },
+            },
+          ],
         };
       },
     };
     await extractReceiptImpl(stubAi, new Uint8Array([0xff, 0xd8]), "image/jpeg");
-    const input = captured as Record<string, unknown> | null;
-    expect(Array.isArray(input?.messages)).toBe(true);
-    expect(String(input?.image ?? "")).toMatch(/^data:image\/jpeg;base64,/);
-    expect(input).not.toHaveProperty("prompt");
+    expect(calls[0]?.model).toContain("mistral");
+    const messages = calls[0]?.input.messages as Array<{ content: unknown }>;
+    expect(Array.isArray(messages)).toBe(true);
+    const content = messages[0]?.content as Array<{ type: string; image_url?: { url: string } }>;
+    expect(Array.isArray(content)).toBe(true);
+    const imageBlock = content.find((b) => b.type === "image_url");
+    expect(imageBlock?.image_url?.url ?? "").toMatch(/^data:image\/jpeg;base64,/);
+  });
+
+  it("falls back to Llama (image: data URI) when Mistral returns low quality", async () => {
+    const calls: Array<{ model: string; input: Record<string, unknown> }> = [];
+    const stubAi = {
+      run: async (model: string, input: Record<string, unknown>) => {
+        calls.push({ model, input });
+        if (model.includes("mistral")) {
+          return { choices: [{ message: { content: "I don't know" } }] };
+        }
+        return {
+          response:
+            '{"restaurantName":"Fallback","totalCents":2000,"currency":"MYR","confidence":"high"}',
+        };
+      },
+    };
+    const result = await extractReceiptImpl(stubAi, new Uint8Array([0xff, 0xd8]), "image/png");
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.model).toContain("mistral");
+    expect(calls[1]?.model).toContain("llama");
+    const llamaInput = calls[1]?.input as Record<string, unknown>;
+    expect(String(llamaInput.image ?? "")).toMatch(/^data:image\/png;base64,/);
+    expect(result.restaurantName).toBe("Fallback");
   });
 });

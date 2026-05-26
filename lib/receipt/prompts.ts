@@ -19,13 +19,19 @@ const FALLBACK: ParsedReceipt = {
 };
 
 export function buildVisionPrompt(): string {
-  return `You are reading a restaurant receipt. Extract the data and return ONLY valid JSON with this exact shape, no prose:
+  return `You extract bill data from an image. The image may be a restaurant receipt, a printed bill, OR a payment-app confirmation screen (Touch'n Go eWallet, GrabPay, Boost, ShopeePay, DuitNow, PayPal, Stripe, etc.).
+
+Return ONLY valid JSON with this exact shape, no prose, no markdown:
 {"restaurantName": string|null, "totalCents": integer|null, "currency": "MYR"|"USD"|"SGD"|null, "confidence": "high"|"medium"|"low"}
+
 Rules:
-- Convert money amounts to integer cents. RM 12.50 -> 1250. $4.99 -> 499.
-- The grand total is what the customer pays after tax/service (look for "Total", "Grand Total", "Amount Due", or the largest amount).
-- If you cannot read a field, return null for it.
-- Output ONLY the JSON object. No markdown fences, no explanation.`;
+- restaurantName: the merchant / restaurant / shop / payee name (e.g. "Watson's", "Kopi House Bangsar", "Starbucks"). If the image only shows a personal name or no merchant, return null.
+- totalCents: convert the bill amount to INTEGER CENTS (multiply RM/USD value by 100). RM 12.50 -> 1250. RM 11.60 -> 1160. $4.99 -> 499. Ignore the minus sign on payment-app screens — only the magnitude matters.
+- Look for the BIGGEST, BOLDEST money amount on the screen first — that's almost always the total. Ignore small numbers like points, tax line items, or reference numbers.
+- currency: detect from RM/MYR (MYR), $/USD (USD), S$/SGD (SGD). Default to MYR if unclear in a Malaysian context.
+- confidence: "high" only if you read the total amount clearly and unambiguously; "medium" if you had to interpret; "low" if you're guessing.
+- If you cannot read a field, return null for it (don't guess).
+- Output ONLY the JSON object. No markdown fences, no explanation, no preamble.`;
 }
 
 function isConfidence(value: unknown): value is Confidence {
@@ -61,10 +67,13 @@ export function parseVisionResponse(raw: unknown): ParsedReceipt {
     trimmedName.length > 0 && trimmedName.length <= 120 ? trimmedName : null;
 
   const rawTotal = obj.totalCents;
+  // Sanity floor at 100 cents (RM 1.00) — under-RM-1 totals are almost always
+  // model hallucinations (e.g. the model misreading RM 11.60 as 61 cents).
+  // Real human-paid bills start around RM 1.
   const totalCents =
     typeof rawTotal === "number" &&
     Number.isInteger(rawTotal) &&
-    rawTotal > 0 &&
+    rawTotal >= 100 &&
     rawTotal <= 100_000_000
       ? rawTotal
       : null;
