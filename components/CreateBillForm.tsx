@@ -4,6 +4,8 @@ import { Loader2, Plus, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createBill } from "@/app/actions/bills";
+import { deleteReceipt } from "@/app/actions/receipt";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -178,6 +180,55 @@ export function CreateBillForm() {
     setState((current) => ({ ...current, [field]: value }));
   }
 
+  const [isDeletingReceipt, setIsDeletingReceipt] = useState(false);
+
+  function clearReceiptState() {
+    setState((current) => {
+      if (current.receiptPreviewUrl) {
+        try {
+          URL.revokeObjectURL(current.receiptPreviewUrl);
+        } catch {
+          // ignored: revoke isn't critical and may not be supported in test env
+        }
+      }
+      return {
+        ...current,
+        receiptKey: null,
+        receiptMime: null,
+        receiptUploadedAt: null,
+        receiptPreviewUrl: null,
+      };
+    });
+  }
+
+  async function handleRemoveReceipt() {
+    const key = state.receiptKey;
+    // Always clear the local preview immediately for instant feedback.
+    // If we have an R2 key, fire-and-forget the delete; on failure, show
+    // a toast but still leave the local state cleared (R2 lifecycle will
+    // also auto-clean after 7 days as a safety net).
+    if (!key) {
+      clearReceiptState();
+      return;
+    }
+    setIsDeletingReceipt(true);
+    try {
+      const fd = new FormData();
+      fd.append("key", key);
+      const result = await deleteReceipt(fd);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success("Receipt removed.");
+      }
+    } catch {
+      toast.error("Couldn't remove the receipt.");
+    } finally {
+      clearReceiptState();
+      setIsDeletingReceipt(false);
+    }
+  }
+
   function handleSnap(result: SnapResult) {
     setServerError(null);
     setState((current) => {
@@ -286,6 +337,8 @@ export function CreateBillForm() {
               src={state.receiptPreviewUrl}
               uploadedAt={state.receiptUploadedAt}
               label={state.receiptKey ? "Receipt attached" : "Receipt preview (not yet attached)"}
+              onDelete={handleRemoveReceipt}
+              deleting={isDeletingReceipt}
             />
           ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
@@ -8,6 +8,8 @@ type Props = {
   uploadedAt: number | Date | null | undefined; // unix seconds OR Date OR null
   retentionDays?: number; // default 7
   label?: string; // override the caption (e.g. "From your phone")
+  onDelete?: () => void; // when present, shows a delete button
+  deleting?: boolean; // disables the delete button + shows pending state
 };
 
 function daysRemaining(uploadedAt: Props["uploadedAt"], retentionDays: number): number {
@@ -19,7 +21,14 @@ function daysRemaining(uploadedAt: Props["uploadedAt"], retentionDays: number): 
   return Math.max(0, Math.ceil(remainingSec / 86400));
 }
 
-export function ReceiptPreview({ src, uploadedAt, retentionDays = 7, label }: Props) {
+export function ReceiptPreview({
+  src,
+  uploadedAt,
+  retentionDays = 7,
+  label,
+  onDelete,
+  deleting = false,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [imgError, setImgError] = useState(false);
   const remaining = daysRemaining(uploadedAt, retentionDays);
@@ -52,28 +61,44 @@ export function ReceiptPreview({ src, uploadedAt, retentionDays = 7, label }: Pr
 
   return (
     <>
-      <button
-        type="button"
-        onClick={open}
-        className="group block w-full overflow-hidden rounded-lg border border-ink/15 bg-paper-soft p-2 text-left transition hover:border-ink/30"
-      >
-        <div className="flex items-start gap-3">
-          {/* Using a plain <img> so the route handler streams from R2 directly */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt="Receipt"
-            className="h-28 w-20 flex-none rounded-md object-cover shadow-sm transition group-hover:opacity-90"
-            onError={() => setImgError(true)}
-          />
-          <div className="min-w-0 flex-1 space-y-1 pt-1">
-            <p className="font-display text-sm text-ink">{label ?? "Receipt attached"}</p>
-            <p className="text-xs text-ink/55">
-              Tap to enlarge · Auto-deletes in {remaining} day{remaining === 1 ? "" : "s"}
-            </p>
+      <div className="relative w-full overflow-hidden rounded-lg border border-ink/15 bg-paper-soft p-2">
+        <button
+          type="button"
+          onClick={open}
+          className="group block w-full text-left"
+        >
+          <div className="flex items-start gap-3">
+            {/* Using a plain <img> so the route handler streams from R2 directly */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt="Receipt"
+              className="h-28 w-20 flex-none rounded-md object-cover shadow-sm transition group-hover:opacity-90"
+              onError={() => setImgError(true)}
+            />
+            <div className="min-w-0 flex-1 space-y-1 pt-1 pr-10">
+              <p className="font-display text-sm text-ink">{label ?? "Receipt attached"}</p>
+              <p className="text-xs text-ink/55">
+                Tap to enlarge · Auto-deletes in {remaining} day{remaining === 1 ? "" : "s"}
+              </p>
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!deleting) onDelete();
+            }}
+            disabled={deleting}
+            aria-label="Remove receipt"
+            className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-md border border-ink/15 bg-paper text-ink/70 transition hover:border-sambal/40 hover:bg-sambal/10 hover:text-sambal disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
 
       <dialog
         ref={dialogRef}

@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { extractReceiptImpl } from "@/lib/receipt/extract";
 import type { ParsedReceipt } from "@/lib/receipt/prompts";
-import { uploadReceiptToR2 } from "@/lib/receipts/storage";
+import { deleteReceiptFromR2, uploadReceiptToR2 } from "@/lib/receipts/storage";
 
 const ALLOWED_MIMES = new Set([
   "image/jpeg",
@@ -36,6 +36,27 @@ export async function extractReceipt(formData: FormData): Promise<ExtractReceipt
   const bytes = new Uint8Array(await v.file.arrayBuffer());
   const { env } = getCloudflareContext();
   return extractReceiptImpl(env.AI, bytes, v.file.type);
+}
+
+export type DeleteReceiptResult = { ok: true } | { error: string };
+
+// Validates the key format defensively so a client can only ever
+// delete objects under the receipts/ prefix.
+const RECEIPT_KEY_PATTERN = /^receipts\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpg|png|webp|heic|heif|bin)$/u;
+
+export async function deleteReceipt(formData: FormData): Promise<DeleteReceiptResult> {
+  const key = formData.get("key");
+  if (typeof key !== "string" || !RECEIPT_KEY_PATTERN.test(key)) {
+    return { error: "Invalid receipt key." };
+  }
+  try {
+    const { env } = getCloudflareContext();
+    await deleteReceiptFromR2(env.RECEIPTS, key);
+    return { ok: true };
+  } catch (err) {
+    console.error("[receipt] delete failed:", err);
+    return { error: "Couldn't delete the receipt." };
+  }
 }
 
 export async function uploadReceipt(formData: FormData): Promise<UploadReceiptResult> {
