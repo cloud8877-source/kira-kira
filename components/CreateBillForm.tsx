@@ -97,6 +97,10 @@ function validateForm(state: FormState): { input: CreateBillInput | null; errors
     receiptKey: state.receiptKey ?? undefined,
     receiptMime: state.receiptMime ?? undefined,
     receiptUploadedAt: state.receiptUploadedAt ?? undefined,
+    paymentQrKey: state.paymentQrKey ?? undefined,
+    paymentQrMime: state.paymentQrMime ?? undefined,
+    paymentQrUploadedAt: state.paymentQrUploadedAt ?? undefined,
+    paymentInstructions: state.paymentInstructions || undefined,
   };
 
   const parsed = createBillSchema.safeParse(candidate);
