@@ -12,7 +12,7 @@
 | 📦 **GitHub repo (public)** | https://github.com/cloud8877-source/kira-kira |
 | 🩺 Health endpoint | https://kira-kira.cloud8877.workers.dev/api/health → `{"ok":true,"result":2}` |
 | 🖼️ OG share card | https://kira-kira.cloud8877.workers.dev/og.png |
-| 📋 Demo bill created during testing | https://kira-kira.cloud8877.workers.dev/b/<leaked-bill-id> (4 ppl, RM 120, 1 paid + 1 pending) |
+| 📋 Demo bill | create a fresh one at the live URL to test the flow |
 
 ---
 
@@ -40,7 +40,7 @@ $ npm test -- --run
 Test Files  7 passed (7) | Tests  36 passed (36)
 $ npm run typecheck
 ✓ tsc --noEmit (zero errors)
-$ ./scripts/e2e-check.sh https://kira-kira.cloud8877.workers.dev <leaked-bill-id>
+$ ./scripts/e2e-check.sh https://kira-kira.cloud8877.workers.dev <your-bill-id>
 ✅ Landing page 200
 ✅ Health endpoint OK
 ✅ Static OG card served (image/png)
@@ -79,10 +79,12 @@ Nothing destructive was done. No force-pushes, no resets, no permission escalati
 
 ## Things you might want to check
 
+Create a fresh test bill at https://kira-kira.cloud8877.workers.dev and use the admin link from the success page for these checks (don't share the admin link publicly — it's a credential).
+
 1. **Snap a real receipt photo on your phone** — open the live URL, tap "Snap receipt", point camera at any bill. Workers AI will try to read title + total. If accuracy is poor on a specific receipt, that's expected for OCR — graceful fallback to manual entry kicks in.
-2. **WhatsApp preview** — paste https://kira-kira.cloud8877.workers.dev/b/<leaked-bill-id> into a WhatsApp Web chat; the static OG card should preview. (Crawlers cache for hours; if it doesn't show immediately, try a different bill URL.)
-3. **Dashboard live polling** — open https://kira-kira.cloud8877.workers.dev/b/<leaked-bill-id>/admin?k=<redacted> in two tabs; mark a participant paid in tab A via the public link; tab B's dashboard should reflect within ~4 seconds.
-4. **Confetti** — confirm all 4 participants paid on the demo bill to see canvas-confetti fire once per session.
+2. **WhatsApp preview** — paste the public bill URL (`/b/<your-bill-id>`) into a WhatsApp Web chat; the static OG card should preview. (Crawlers cache for hours; if it doesn't show immediately, try a different bill URL.)
+3. **Dashboard live polling** — open the admin URL (`/b/<your-bill-id>/admin?k=<your-admin-secret>`) in two tabs; mark a participant paid in tab A via the public link; tab B's dashboard should reflect within ~4 seconds.
+4. **Confetti** — confirm all participants paid on the demo bill to see canvas-confetti fire once per session.
 5. **Mobile** — designed for 390×844 (iPhone 14); all screenshots in `docs/screenshots/` are at that viewport.
 
 ---
